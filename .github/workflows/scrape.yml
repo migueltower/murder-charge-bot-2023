@@ -1,0 +1,24 @@
+name: Murder Case Scraper
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *'  # every 6 hours
+
+jobs:
+  run-scraper:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install pipenv
+        run: pip install pipenv
+      - name: Install dependencies
+        run: pipenv install --skip-lock
+      - name: Run scraper
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: google-creds.json
+        run: pipenv run python scraper.py
