@@ -3,7 +3,7 @@ name: Murder Case Scraper
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */6 * * *'  # runs every 6 hours
+    - cron: '0 */6 * * *'
 
 jobs:
   run-scraper:
@@ -23,9 +23,8 @@ jobs:
       - name: Install dependencies
         run: pipenv install --skip-lock
 
-      # 👇 THIS IS THE IMPORTANT PART
       - name: Write Google credentials
-        run: echo "${{ secrets.GOOGLE_CREDS }}" > google-creds.json
+        run: echo "${{ secrets.GOOGLE_CREDS_BASE64 }}" | base64 -d > google-creds.json
 
       - name: Run scraper
         run: pipenv run python scraper.py
