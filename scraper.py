@@ -17,8 +17,8 @@ if sheet.cell(1, 1).value != "Case Number":
 
 year = 2024
 prefix = f"CR{year}-"
-start = 160000
-end = 160600
+start = 0
+end = 100
 
 case_numbers = [f"{prefix}{str(i).zfill(6)}" for i in range(start, end + 1)]
 urls = [f'https://www.superiorcourt.maricopa.gov/docket/CriminalCourtCases/caseInfo.asp?caseNumber={case}' for case in case_numbers]
@@ -28,27 +28,19 @@ for case_number, url in zip(case_numbers, urls):
         req = requests.get(url, timeout=15)
         soup = BeautifulSoup(req.content, "html.parser")
 
-        first_charge = None
-        found_description = False
-        divs = soup.find_all("div")
+        # Only look at specific divs with this class
+        charge_divs = soup.find_all("div", class_="col-6 col-md-3 col-lg-3 col-xl-3")
+        found_murder = False
 
-        for i in range(len(divs) - 1):
-            label = divs[i].get_text(strip=True).upper()
-            if label == "DESCRIPTION":
-                found_description = True
-                description = divs[i + 1].get_text(strip=True)
-                print(f"{case_number} → Description: {description}")
+        for div in charge_divs:
+            charge = div.get_text(strip=True)
+            if "MURDER" in charge.upper():
+                sheet.append_row([case_number, url, charge])
+                found_murder = True
+                break  # only need the first one
 
-                if not first_charge:
-                    first_charge = description
-
-                if "MURDER" in description.upper():
-                    first_charge = description
-
-        if found_description:
-            sheet.append_row([case_number, url, first_charge or "No charge found"])
-        else:
-            print(f"{case_number} → No description found")
+        if not found_murder:
+            print(f"{case_number} → no murder charge found")
 
         time.sleep(1.5)
 
