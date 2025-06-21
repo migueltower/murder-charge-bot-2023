@@ -9,43 +9,47 @@ scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/au
 creds = ServiceAccountCredentials.from_json_keyfile_name("google-creds.json", scope)
 client = gspread.authorize(creds)
 
-sheet = client.open("Murder Charges").sheet1  # name of your Google Sheet
+sheet = client.open("Murder Charges").sheet1
 
 # Define headers
 if sheet.cell(1, 1).value != "Case Number":
     sheet.insert_row(["Case Number", "URL", "First Charge"], 1)
 
-# --- Generate list of case numbers and URLs ---
 year = 2024
 prefix = f"CR{year}-"
-batch_size = 600
 start = 160000
-end = 160600  # adjust this range as needed
+end = 160600
 
 case_numbers = [f"{prefix}{str(i).zfill(6)}" for i in range(start, end + 1)]
 urls = [f'https://www.superiorcourt.maricopa.gov/docket/CriminalCourtCases/caseInfo.asp?caseNumber={case}' for case in case_numbers]
 
-# --- Loop through URLs and extract charges ---
 for case_number, url in zip(case_numbers, urls):
     try:
         req = requests.get(url, timeout=15)
         soup = BeautifulSoup(req.content, "html.parser")
 
         first_charge = None
+        found_description = False
         divs = soup.find_all("div")
 
         for i in range(len(divs) - 1):
             label = divs[i].get_text(strip=True).upper()
             if label == "DESCRIPTION":
+                found_description = True
                 description = divs[i + 1].get_text(strip=True)
+                print(f"{case_number} → Description: {description}")
 
                 if not first_charge:
                     first_charge = description
 
                 if "MURDER" in description.upper():
-                    first_charge = description  # overwrite with murder charge
+                    first_charge = description
 
-        sheet.append_row([case_number, url, first_charge or "No charge found"])
+        if found_description:
+            sheet.append_row([case_number, url, first_charge or "No charge found"])
+        else:
+            print(f"{case_number} → No description found")
+
         time.sleep(1.5)
 
     except Exception as e:
