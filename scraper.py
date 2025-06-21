@@ -17,8 +17,8 @@ if sheet.cell(1, 1).value != "Case Number":
 
 year = 2024
 prefix = f"CR{year}-"
-start = 160500
-end = 160600
+start = 160502
+end = 160504
 
 case_numbers = [f"{prefix}{str(i).zfill(6)}" for i in range(start, end + 1)]
 urls = [f'https://www.superiorcourt.maricopa.gov/docket/CriminalCourtCases/caseInfo.asp?caseNumber={case}' for case in case_numbers]
@@ -31,6 +31,11 @@ for case_number, url in zip(case_numbers, urls):
         # Only look at specific divs with this class
         charge_divs = soup.find_all("div", class_="col-6 col-md-3 col-lg-3 col-xl-3")
         found_murder = False
+
+        if charge_divs:
+            print(f"{case_number} → Found {len(charge_divs)} charge-related divs")
+        else:
+            print(f"{case_number} → No divs with target class found")
 
         for div in charge_divs:
             charge = div.get_text(strip=True)
