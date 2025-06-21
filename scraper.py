@@ -28,9 +28,10 @@ for case_number, url in zip(case_numbers, urls):
         req = requests.get(url, timeout=15)
         soup = BeautifulSoup(req.content, "html.parser")
 
-        # Only look at specific divs with this class
+        # Target divs
         charge_divs = soup.find_all("div", class_="col-6 col-md-3 col-lg-3 col-xl-3")
         found_murder = False
+        murder_charge = None
 
         if charge_divs:
             print(f"{case_number} → Found {len(charge_divs)} charge-related divs")
@@ -40,11 +41,14 @@ for case_number, url in zip(case_numbers, urls):
         for div in charge_divs:
             charge = div.get_text(strip=True)
             if "MURDER" in charge.upper():
-                sheet.append_row([case_number, url, charge])
+                print(f"{case_number} → MURDER charge found: {charge}")
+                murder_charge = charge
                 found_murder = True
-                break  # only need the first one
+                break  # only need the first match
 
-        if not found_murder:
+        if found_murder:
+            sheet.append_row([case_number, url, murder_charge])
+        else:
             print(f"{case_number} → no murder charge found")
 
         time.sleep(1.5)
