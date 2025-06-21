@@ -2,6 +2,8 @@ name: Murder Case Scraper
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *'  # Runs every 6 hours
 
 jobs:
   run-scraper:
@@ -21,8 +23,11 @@ jobs:
       - name: Install dependencies
         run: pipenv install --skip-lock
 
-      - name: Write Google credentials
-        run: echo "${{ secrets.GOOGLE_CREDS_BASE64 }}" | base64 -d > google-creds.json
-
       - name: Run scraper
         run: pipenv run python scraper.py
+
+      - name: Upload CSV file
+        uses: actions/upload-artifact@v3
+        with:
+          name: murder-charges-csv
+          path: murder_charges.csv
