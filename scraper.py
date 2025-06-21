@@ -18,9 +18,9 @@ if sheet.cell(1, 1).value != "Case Number":
 # --- Generate list of case numbers and URLs ---
 year = 2024
 prefix = f"CR{year}-"
-batch_size = 100
-start = 0
-end = 100  # adjust this range as needed
+batch_size = 600
+start = 160000
+end = 160600  # adjust this range as needed
 
 case_numbers = [f"{prefix}{str(i).zfill(6)}" for i in range(start, end + 1)]
 urls = [f'https://www.superiorcourt.maricopa.gov/docket/CriminalCourtCases/caseInfo.asp?caseNumber={case}' for case in case_numbers]
