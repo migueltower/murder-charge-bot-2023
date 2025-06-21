@@ -18,9 +18,9 @@ if sheet.cell(1, 1).value != "Case Number":
 # --- Generate list of case numbers and URLs ---
 year = 2024
 prefix = f"CR{year}-"
-batch_size = 10000  # Adjust this to stay under GitHub runner limits
+batch_size = 100000
 start = 160000
-end = 170000  # You'll increment this range with batching
+end = 170000 # adjust this range for batching
 
 case_numbers = [f"{prefix}{str(i).zfill(6)}" for i in range(start, end + 1)]
 urls = [f'https://www.superiorcourt.maricopa.gov/docket/CriminalCourtCases/caseInfo.asp?caseNumber={case}' for case in case_numbers]
@@ -38,22 +38,19 @@ for case_number, url in zip(case_numbers, urls):
             rows = table.find_all("div", class_='row g-0')
             for row in rows:
                 divs = row.find_all("div")
-                for i in range(len(divs)):
-                    if "Description" in divs[i].get_text(strip=True):
+                for i in range(len(divs) - 1):
+                    label = divs[i].get_text(strip=True).upper()
+                    if label == "DESCRIPTION":
                         description = divs[i + 1].get_text(strip=True)
 
                         if not first_charge:
                             first_charge = description
 
                         if "MURDER" in description.upper():
-                            first_charge = description
-                            break
-                else:
-                    continue
-                break
+                            first_charge = description  # overwrite with murder charge
 
         sheet.append_row([case_number, url, first_charge or "No charge found"])
-        time.sleep(1.5)  # Stay within rate limits
+        time.sleep(1.5)
 
     except Exception as e:
         print(f"Error with {case_number}: {e}")
