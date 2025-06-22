@@ -1,13 +1,22 @@
-name: Murder Case Scraper
+name: Murder Case Scraper Controller
 
 on:
   workflow_dispatch:
+    inputs:
+      start:
+        description: 'Start case number'
+        required: true
+        default: '0'
+      end:
+        description: 'End case number'
+        required: true
+        default: '19999'
 
 jobs:
-  run-scraper:
+  run-batch:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out repo
+      - name: Checkout repo
         uses: actions/checkout@v3
 
       - name: Set up Python
@@ -22,10 +31,24 @@ jobs:
         run: pipenv install --skip-lock
 
       - name: Run scraper
+        env:
+          START: ${{ github.event.inputs.start }}
+          END: ${{ github.event.inputs.end }}
         run: pipenv run python scraper.py
 
-      - name: Upload CSV file
+      - name: Upload CSV artifact
         uses: actions/upload-artifact@v4
         with:
-          name: murder-charges-csv
+          name: murder-charges-${{ github.event.inputs.start }}-${{ github.event.inputs.end }}
           path: murder_charges.csv
+
+      - name: Schedule next batch if not done
+        if: ${{ github.event.inputs.end < 170000 }}
+        run: |
+          next_start=$(( ${{ github.event.inputs.end }} + 1 ))
+          next_end=$(( $next_start + 19999 ))
+          if [ "$next_end" -gt 170000 ]; then next_end=170000; fi
+          echo "Scheduling next batch: $next_start to $next_end"
+          gh workflow run scrape.yml -f start=$next_start -f end=$next_end
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
