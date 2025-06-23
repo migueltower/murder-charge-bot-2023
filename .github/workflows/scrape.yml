@@ -51,4 +51,5 @@ jobs:
           echo "Scheduling next batch: $next_start to $next_end"
           gh workflow run scrape.yml -f start=$next_start -f end=$next_end
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              GH_TOKEN: ${{ secrets.PAT }}
+
