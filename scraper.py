@@ -1,51 +1,54 @@
-import requests
-from bs4 import BeautifulSoup
-import csv
-import time
-import os
+name: Murder Case Scraper Controller
 
-# Read case range from environment variables
-year = 2024
-prefix = f"CR{year}-"
-start = int(os.getenv("START", 0))
-end = int(os.getenv("END", 19999))
-csv_file = "murder_charges.csv"
+on:
+  workflow_dispatch:
+    inputs:
+      start:
+        description: 'Start case number'
+        required: true
+        default: '0'
+      end:
+        description: 'End case number'
+        required: true
+        default: '9999'
 
-print(f"🔁 Starting batch: {start} to {end}")
+jobs:
+  run-batch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v3
 
-# Prepare output CSV
-fieldnames = ["Case Number", "URL", "Charge"]
-with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
-    writer = csv.DictWriter(f, fieldnames=fieldnames)
-    writer.writeheader()
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
 
-    # Build and scrape each case URL
-    for i in range(start, end + 1):
-        case_number = f"{prefix}{str(i).zfill(6)}"
-        url = f"https://www.superiorcourt.maricopa.gov/docket/CriminalCourtCases/caseInfo.asp?caseNumber={case_number}"
-        try:
-            req = requests.get(url, timeout=15)
-            soup = BeautifulSoup(req.content, "html.parser")
+      - name: Install pipenv
+        run: pip install pipenv
 
-            charge_divs = soup.find_all("div", class_="col-6 col-md-3 col-lg-3 col-xl-3")
-            found_murder = False
+      - name: Install dependencies
+        run: pipenv install --skip-lock
 
-            for div in charge_divs:
-                charge = div.get_text(strip=True)
-                if "MURDER" in charge.upper():
-                    writer.writerow({
-                        "Case Number": case_number,
-                        "URL": url,
-                        "Charge": charge
-                    })
-                    print(f"{case_number} → MURDER charge found: {charge}")
-                    found_murder = True
-                    break  # Only need the first match
+      - name: Run scraper
+        env:
+          START: ${{ github.event.inputs.start }}
+          END: ${{ github.event.inputs.end }}
+        run: pipenv run python scraper.py
 
-            if not found_murder:
-                print(f"{case_number} → no murder charge found")
+      - name: Upload CSV file
+        uses: actions/upload-artifact@v4
+        with:
+          name: murder-charges-${{ github.event.inputs.start }}-${{ github.event.inputs.end }}
+          path: murder_charges.csv
 
-            time.sleep(1.5)
-
-        except Exception as e:
-            print(f"⚠️ Error with {case_number}: {e}")
+      - name: Schedule next batch if not done
+        if: ${{ github.event.inputs.end < 170000 }}
+        run: |
+          next_start=$(( ${{ github.event.inputs.end }} + 1 ))
+          next_end=$(( $next_start + 9999 ))
+          if [ "$next_end" -gt 170000 ]; then next_end=170000; fi
+          echo "Scheduling next batch: $next_start to $next_end"
+          gh workflow run scrape.yml -f start=$next_start -f end=$next_end
+        env:
+          GH_TOKEN: ${{ secrets.PAT }}
