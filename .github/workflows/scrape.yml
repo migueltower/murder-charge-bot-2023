@@ -46,7 +46,7 @@ jobs:
         if: ${{ github.event.inputs.end < 170000 }}
         run: |
           next_start=$(( ${{ github.event.inputs.end }} + 1 ))
-          next_end=$(( $next_start + 19999 ))
+          next_end=$(( $next_start + 9999 ))
           if [ "$next_end" -gt 170000 ]; then next_end=170000; fi
           echo "Scheduling next batch: $next_start to $next_end"
           gh workflow run scrape.yml -f start=$next_start -f end=$next_end
