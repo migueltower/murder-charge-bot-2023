@@ -1,20 +1,19 @@
-name: Murder Case Scraper Controller
+name: Murder Case Scraper Parallel Batches
 
 on:
   workflow_dispatch:
-    inputs:
-      start:
-        description: 'Start case number'
-        required: true
-        default: '0'
-      end:
-        description: 'End case number'
-        required: true
-        default: '19999'
 
 jobs:
-  run-batch:
+  run-batches:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        range: [
+          "0-9999", "10000-19999", "20000-29999", "30000-39999", "40000-49999",
+          "50000-59999", "60000-69999", "70000-79999", "80000-89999", "90000-99999",
+          "100000-109999", "110000-119999", "120000-129999", "130000-139999",
+          "140000-149999", "150000-159999", "160000-170000"
+        ]
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -30,26 +29,22 @@ jobs:
       - name: Install dependencies
         run: pipenv install --skip-lock
 
+      - name: Extract batch range
+        id: range
+        run: |
+          START=$(echo "${{ matrix.range }}" | cut -d '-' -f 1)
+          END=$(echo "${{ matrix.range }}" | cut -d '-' -f 2)
+          echo "start=$START" >> $GITHUB_OUTPUT
+          echo "end=$END" >> $GITHUB_OUTPUT
+
       - name: Run scraper
         env:
-          START: ${{ github.event.inputs.start }}
-          END: ${{ github.event.inputs.end }}
+          START: ${{ steps.range.outputs.start }}
+          END: ${{ steps.range.outputs.end }}
         run: pipenv run python scraper.py
 
-      - name: Upload CSV artifact
+      - name: Upload CSV file
         uses: actions/upload-artifact@v4
         with:
-          name: murder-charges-${{ github.event.inputs.start }}-${{ github.event.inputs.end }}
+          name: murder-charges-${{ steps.range.outputs.start }}-${{ steps.range.outputs.end }}
           path: murder_charges.csv
-
-      - name: Schedule next batch if not done
-        if: ${{ github.event.inputs.end < 170000 }}
-        run: |
-          next_start=$(( ${{ github.event.inputs.end }} + 1 ))
-          next_end=$(( $next_start + 9999 ))
-          if [ "$next_end" -gt 170000 ]; then next_end=170000; fi
-          echo "Scheduling next batch: $next_start to $next_end"
-          gh workflow run scrape.yml -f start=$next_start -f end=$next_end
-        env:
-              GH_TOKEN: ${{ secrets.PAT }}
-
