@@ -12,7 +12,7 @@ csv_file = "murder_charges.csv"
 
 print(f"🔁 Running case range: {start} to {end}")
 
-fieldnames = ["Case Number", "URL", "Charge"]
+fieldnames = ["Case Number", "URL", "Charge", "Defendant"]
 with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
     writer = csv.DictWriter(f, fieldnames=fieldnames)
     writer.writeheader()
@@ -36,7 +36,10 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
 
             for row in rows:
                 divs = row.find_all("div")
+                defendant_name = ""
                 for i in range(len(divs)):
+                    if "Party Name" in divs[i].get_text(strip=True):
+                        defendant_name = divs[i + 1].get_text(strip=True)
                     if "Description" in divs[i].get_text(strip=True):
                         description = divs[i + 1].get_text(strip=True)
                         total_charges +=1
@@ -46,7 +49,8 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
                             writer.writerow({
                                 "Case Number": case_number,
                                 "URL": url,
-                                "Charge": description
+                                "Charge": description,
+                                "Defendant": defendant_name
                             })
                         if "MANSLAUGHTER" in description.upper():
                             manslaughter_charges +=1
@@ -54,7 +58,8 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
                             writer.writerow({
                                 "Case Number": case_number,
                                 "URL": url,
-                                "Charge": description
+                                "Charge": description,
+                                "Defendant": defendant_name
                             })
 
             print(f"{case_number} → Charges found: {total_charges}, Murder charges: {murder_charges}, Manslaughter charges: {manslaughter_charges}")
