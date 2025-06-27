@@ -45,6 +45,8 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
                         defendant_name = divs[i + 1].get_text(strip=True)
                     if "Disposition" in text and i + 1 < len(divs):
                         disposition = divs[i + 1].get_text(strip=True)
+                        if disposition:
+                            print(f"{case_number} → Found Disposition: {disposition}")
                     if "Description" in text and i + 1 < len(divs):
                         description = divs[i + 1].get_text(strip=True)
                         total_charges +=1
