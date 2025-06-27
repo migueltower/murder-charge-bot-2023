@@ -30,23 +30,25 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
                 continue
 
             rows = charges_section.find_all("div", class_="row g-0")
+            total_charges = 0
+            murder_charges = 0
 
             for row in rows:
                 divs = row.find_all("div")
                 for i in range(len(divs)):
                     if "Description" in divs[i].get_text(strip=True):
                         description = divs[i + 1].get_text(strip=True)
+                        total_charges +=1
                         if "MURDER" in description.upper():
+                            murder_charges +=1
                             print(f"{case_number} → Found MURDER charge")
                             writer.writerow({
                                 "Case Number": case_number,
                                 "URL": url,
                                 "Charge": description
                             })
-                            break
-                else:
-                    continue
-                break
+
+            print(f"{case_number} → Charges found: {total_charges}, Murder charges: {murder_charges}")
 
             time.sleep(1.5)
 
