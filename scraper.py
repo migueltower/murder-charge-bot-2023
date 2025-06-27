@@ -48,7 +48,7 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
                                 "URL": url,
                                 "Charge": description
                             })
-                        elif "MANSLAUGHTER" in description.upper():
+                        if "MANSLAUGHTER" in description.upper():
                             manslaughter_charges +=1
                             print(f"{case_number} → Found MANSLAUGHTER charge")
                             writer.writerow({
