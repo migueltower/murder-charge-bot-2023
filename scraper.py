@@ -24,7 +24,7 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
         try:
             req = requests.get(url, timeout=15)
             soup = BeautifulSoup(req.content, "html.parser")
-            
+
             charges_section = soup.find("div", id="tblDocket12")
             if not charges_section:
                 continue
@@ -37,32 +37,27 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
             for row in rows:
                 divs = row.find_all("div")
                 defendant_name = ""
-                disposition = ""
-                description = ""
+                found_disposition = False
                 for i in range(len(divs)):
                     text = divs[i].get_text(strip=True)
                     if "Party Name" in text and i + 1 < len(divs):
                         defendant_name = divs[i + 1].get_text(strip=True)
-                    if "Disposition" in text and i + 1 < len(divs):
-                        disposition = divs[i + 1].get_text(strip=True)
-                        if disposition:
-                            print(f"{case_number} → Found Disposition: {disposition}")
                     if "Description" in text and i + 1 < len(divs):
                         description = divs[i + 1].get_text(strip=True)
                         total_charges +=1
-                        if "MURDER" in description.upper():
-                            murder_charges +=1
-                            print(f"{case_number} → Found MURDER charge")
-                            writer.writerow({
-                                "Case Number": case_number,
-                                "URL": url,
-                                "Charge": description,
-                                "Defendant": defendant_name,
-                                "Disposition": disposition
-                            })
-                        if "MANSLAUGHTER" in description.upper():
-                            manslaughter_charges +=1
-                            print(f"{case_number} → Found MANSLAUGHTER charge")
+                        if "MURDER" in description.upper() or "MANSLAUGHTER" in description.upper():
+                            charge_type = "MURDER" if "MURDER" in description.upper() else "MANSLAUGHTER"
+                            if charge_type == "MURDER":
+                                murder_charges +=1
+                            else:
+                                manslaughter_charges +=1
+                            disposition = ""
+                            for j in range(i+2, len(divs)):
+                                next_text = divs[j].get_text(strip=True)
+                                if "Disposition" in next_text and j + 1 < len(divs):
+                                    disposition = divs[j + 1].get_text(strip=True)
+                                    print(f"{case_number} → Found {charge_type} charge with disposition: {disposition}")
+                                    break
                             writer.writerow({
                                 "Case Number": case_number,
                                 "URL": url,
