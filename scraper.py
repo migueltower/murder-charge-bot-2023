@@ -32,6 +32,7 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
             rows = charges_section.find_all("div", class_="row g-0")
             total_charges = 0
             murder_charges = 0
+            manslaughter_charges = 0
 
             for row in rows:
                 divs = row.find_all("div")
@@ -47,8 +48,16 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
                                 "URL": url,
                                 "Charge": description
                             })
+                        elif "MANSLAUGHTER" in description.upper():
+                            manslaughter_charges +=1
+                            print(f"{case_number} → Found MANSLAUGHTER charge")
+                            writer.writerow({
+                                "Case Number": case_number,
+                                "URL": url,
+                                "Charge": description
+                            })
 
-            print(f"{case_number} → Charges found: {total_charges}, Murder charges: {murder_charges}")
+            print(f"{case_number} → Charges found: {total_charges}, Murder charges: {murder_charges}, Manslaughter charges: {manslaughter_charges}")
 
             time.sleep(1.5)
 
