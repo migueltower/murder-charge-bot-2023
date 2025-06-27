@@ -12,7 +12,7 @@ csv_file = "murder_charges.csv"
 
 print(f"🔁 Running case range: {start} to {end}")
 
-fieldnames = ["Case Number", "URL", "Charge", "Defendant", "Disposition Code"]
+fieldnames = ["Case Number", "URL", "Charge", "Defendant", "Disposition"]
 with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
     writer = csv.DictWriter(f, fieldnames=fieldnames)
     writer.writeheader()
@@ -37,14 +37,14 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
             for row in rows:
                 divs = row.find_all("div")
                 defendant_name = ""
-                disposition_code = ""
+                disposition = ""
                 description = ""
                 for i in range(len(divs)):
                     text = divs[i].get_text(strip=True)
                     if "Party Name" in text:
                         defendant_name = divs[i + 1].get_text(strip=True)
-                    if "Disposition Code" in text:
-                        disposition_code = divs[i + 1].get_text(strip=True)
+                    if "Disposition" in text:
+                        disposition = divs[i + 1].get_text(strip=True)
                     if "Description" in text:
                         description = divs[i + 1].get_text(strip=True)
                         total_charges +=1
@@ -56,7 +56,7 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
                                 "URL": url,
                                 "Charge": description,
                                 "Defendant": defendant_name,
-                                "Disposition Code": disposition_code
+                                "Disposition": disposition
                             })
                         if "MANSLAUGHTER" in description.upper():
                             manslaughter_charges +=1
@@ -66,7 +66,7 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
                                 "URL": url,
                                 "Charge": description,
                                 "Defendant": defendant_name,
-                                "Disposition Code": disposition_code
+                                "Disposition": disposition
                             })
 
             print(f"{case_number} → Charges found: {total_charges}, Murder charges: {murder_charges}, Manslaughter charges: {manslaughter_charges}")
