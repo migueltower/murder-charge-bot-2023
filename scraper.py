@@ -24,26 +24,29 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
         try:
             req = requests.get(url, timeout=15)
             soup = BeautifulSoup(req.content, "html.parser")
+            
+            charges_section = soup.find("div", id="tblDocket12")
+            if not charges_section:
+                continue
 
-            divs = soup.find_all("div")
-            descriptions = []
-            for i in range(len(divs) - 1):
-                label = divs[i].get_text(strip=True).upper()
-                if label == "DESCRIPTION":
-                    charge = divs[i + 1].get_text(strip=True)
-                    descriptions.append(charge)
+            rows = charges_section.find_all("div", class_="row g-0")
 
-            num_charges = len(descriptions)
-            murder_charges = [c for c in descriptions if "MURDER" in c.upper()]
-
-            print(f"{case_number} → {num_charges} charges found, {len(murder_charges)} mention 'MURDER'")
-
-            if murder_charges:
-                writer.writerow({
-                    "Case Number": case_number,
-                    "URL": url,
-                    "Charge": murder_charges[0]
-                })
+            for row in rows:
+                divs = row.find_all("div")
+                for i in range(len(divs)):
+                    if "Description" in divs[i].get_text(strip=True):
+                        description = divs[i + 1].get_text(strip=True)
+                        if "MURDER" in description.upper():
+                            print(f"{case_number} → Found MURDER charge")
+                            writer.writerow({
+                                "Case Number": case_number,
+                                "URL": url,
+                                "Charge": description
+                            })
+                            break
+                else:
+                    continue
+                break
 
             time.sleep(1.5)
 
