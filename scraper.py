@@ -41,8 +41,6 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
                 for i in range(len(divs)):
                     if "Party Name" in divs[i].get_text(strip=True):
                         defendant_name = divs[i + 1].get_text(strip=True)
-                    if "Disposition Code" in divs[i].get_text(strip=True):
-                        disposition_code = divs[i + 1].get_text(strip=True)
                     if "Description" in divs[i].get_text(strip=True):
                         description = divs[i + 1].get_text(strip=True)
                         total_charges +=1
@@ -65,6 +63,8 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
                                 "Charge": description,
                                 "Defendant": defendant_name,
                                 "Disposition Code": disposition_code
+                     if "Disposition Code" in divs[i].get_text(strip=True):
+                        disposition_code = divs[i + 1].get_text(strip=True)
                             })
 
             print(f"{case_number} → Charges found: {total_charges}, Murder charges: {murder_charges}, Manslaughter charges: {manslaughter_charges}")
