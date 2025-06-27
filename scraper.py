@@ -41,11 +41,11 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
                 description = ""
                 for i in range(len(divs)):
                     text = divs[i].get_text(strip=True)
-                    if "Party Name" in text:
+                    if "Party Name" in text and i + 1 < len(divs):
                         defendant_name = divs[i + 1].get_text(strip=True)
-                    if "Disposition" in text:
+                    if "Disposition" in text and i + 1 < len(divs):
                         disposition = divs[i + 1].get_text(strip=True)
-                    if "Description" in text:
+                    if "Description" in text and i + 1 < len(divs):
                         description = divs[i + 1].get_text(strip=True)
                         total_charges +=1
                         if "MURDER" in description.upper():
