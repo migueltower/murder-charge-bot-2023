@@ -9,7 +9,7 @@ jobs:
     strategy:
       matrix:
         range: [
-          "10000-19999"
+          "100000-109999"
         ]
     steps:
       - name: Checkout repo
