@@ -1,0 +1,43 @@
+name: Murder Case Scraper (Batch 2)
+
+on:
+  workflow_dispatch:
+    inputs:
+      start:
+        description: 'Start case number'
+        required: true
+        default: '0'
+      end:
+        description: 'End case number'
+        required: true
+        default: '9999'
+
+jobs:
+  run-batch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install pipenv
+        run: pip install pipenv
+
+      - name: Install dependencies
+        run: pipenv install --skip-lock
+
+      - name: Run scraper
+        env:
+          START: ${{ github.event.inputs.start }}
+          END: ${{ github.event.inputs.end }}
+        run: pipenv run python scraper.py
+
+      - name: Upload CSV
+        uses: actions/upload-artifact@v4
+        with:
+          name: murder-charges-${{ github.event.inputs.start }}-${{ github.event.inputs.end }}
+          path: murder_charges.csv
