@@ -1,16 +1,20 @@
-name: Murder Case Scraper Parallel Batches
+name: Murder Case Scraper (Manual Range)
 
 on:
   workflow_dispatch:
+    inputs:
+      start:
+        description: 'Start case number'
+        required: true
+        default: '0'
+      end:
+        description: 'End case number'
+        required: true
+        default: '9999'
 
 jobs:
-  run-batches:
+  run-manual-range:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        range: [
-          "100000-109999"
-        ]
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -26,22 +30,14 @@ jobs:
       - name: Install dependencies
         run: pipenv install --skip-lock
 
-      - name: Extract batch range
-        id: range
-        run: |
-          START=$(echo "${{ matrix.range }}" | cut -d '-' -f 1)
-          END=$(echo "${{ matrix.range }}" | cut -d '-' -f 2)
-          echo "start=$START" >> $GITHUB_OUTPUT
-          echo "end=$END" >> $GITHUB_OUTPUT
-
       - name: Run scraper
         env:
-          START: ${{ steps.range.outputs.start }}
-          END: ${{ steps.range.outputs.end }}
+          START: ${{ github.event.inputs.start }}
+          END: ${{ github.event.inputs.end }}
         run: pipenv run python scraper.py
 
       - name: Upload CSV file
         uses: actions/upload-artifact@v4
         with:
-          name: murder-charges-${{ steps.range.outputs.start }}-${{ steps.range.outputs.end }}
+          name: murder-charges-${{ github.event.inputs.start }}-${{ github.event.inputs.end }}
           path: murder_charges.csv
