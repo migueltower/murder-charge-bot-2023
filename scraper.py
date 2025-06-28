@@ -24,18 +24,24 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
 
         try:
             req = requests.get(url, timeout=15)
+            print(f"Request status: {req.status_code} URL: {req.url}", flush=True)
+
             soup = BeautifulSoup(req.content, "html.parser")
 
             charges_section = soup.find("div", id="tblDocket12")
             if not charges_section:
+                print(f"No charges section found for {case_number}", flush=True)
                 continue
 
             rows = charges_section.find_all("div", class_="row g-0")
+            print(f"Found {len(rows)} rows for {case_number}", flush=True)
+
             total_charges = 0
             murder_charges = 0
             manslaughter_charges = 0
 
             for row in rows:
+                print(f"Processing row for {case_number}", flush=True)
                 divs = row.find_all("div")
                 defendant_name = ""
                 found_disposition = False
