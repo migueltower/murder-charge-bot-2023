@@ -10,7 +10,7 @@ year = 2023
 prefix = f"CR{year}-"
 csv_file = "murder_charges.csv"
 
-print(f"🔁 Running case range: {start} to {end}")
+print(f"🔁 Running case range: {start} to {end}", flush=True)
 
 fieldnames = ["Case Number", "URL", "Charge", "Defendant", "Disposition"]
 with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
@@ -19,6 +19,7 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
 
     for i in range(start, end + 1):
         case_number = f"{prefix}{str(i).zfill(6)}"
+        print(f"Checking case: {case_number}", flush=True)
         url = f"https://www.superiorcourt.maricopa.gov/docket/CriminalCourtCases/caseInfo.asp?caseNumber={case_number}"
 
         try:
@@ -56,7 +57,7 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
                                 next_text = divs[j].get_text(strip=True)
                                 if "Disposition" in next_text and j + 1 < len(divs):
                                     disposition = divs[j + 1].get_text(strip=True)
-                                    print(f"{case_number} → Found {charge_type} charge with disposition: {disposition}")
+                                    print(f"{case_number} → Found {charge_type} charge with disposition: {disposition}", flush=True)
                                     break
                             writer.writerow({
                                 "Case Number": case_number,
@@ -66,9 +67,11 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
                                 "Disposition": disposition
                             })
 
-            print(f"{case_number} → Charges found: {total_charges}, Murder charges: {murder_charges}, Manslaughter charges: {manslaughter_charges}")
+            print(f"{case_number} → Charges found: {total_charges}, Murder charges: {murder_charges}, Manslaughter charges: {manslaughter_charges}", flush=True)
 
             time.sleep(1.5)
 
+        except requests.exceptions.RequestException as e:
+            print(f"⚠️ Request error with {case_number}: {e}", flush=True)
         except Exception as e:
-            print(f"⚠️ Error with {case_number}: {e}")
+            print(f"⚠️ General error with {case_number}: {e}", flush=True)
