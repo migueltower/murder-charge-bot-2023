@@ -99,5 +99,5 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
                 print(f"⚠️ General error with {case_number}: {e}", flush=True)
                 break
 
-        sleep_time = random.uniform(3, 30)
+        sleep_time = random.uniform(10, 30)
         time.sleep(sleep_time)
