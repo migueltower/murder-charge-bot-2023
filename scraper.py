@@ -5,13 +5,6 @@ import time
 import os
 import random
 
-HEADERS_LIST = [
-    {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"},
-    {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.1 Safari/605.1.15"},
-    {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0"},
-    {"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15A372 Safari/604.1"}
-]
-
 start = int(os.getenv("START", 0))
 end = int(os.getenv("END", 9999))
 year = 2023
@@ -31,8 +24,7 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
         url = f"https://www.superiorcourt.maricopa.gov/docket/CriminalCourtCases/caseInfo.asp?caseNumber={case_number}"
 
         try:
-            headers = random.choice(HEADERS_LIST)
-            req = requests.get(url, headers=headers, timeout=15)
+            req = requests.get(url, timeout=15)
             print(f"Request status: {req.status_code} URL: {req.url}", flush=True)
 
             soup = BeautifulSoup(req.content, "html.parser")
@@ -84,7 +76,7 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
 
             print(f"{case_number} → Charges found: {total_charges}, Murder charges: {murder_charges}, Manslaughter charges: {manslaughter_charges}", flush=True)
 
-            sleep_time = random.uniform(4, 7)
+            sleep_time = random.uniform(3, 5)
             time.sleep(sleep_time)
 
         except requests.exceptions.RequestException as e:
