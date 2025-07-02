@@ -36,6 +36,8 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
             charges_section = soup.find("div", id="tblDocket12")
             if not charges_section:
                 print(f"No charges section found for {case_number}", flush=True)
+                snippet = soup.get_text(strip=True)[:300]
+                print(f"🔎 Page preview for {case_number}: {snippet}", flush=True)
                 continue
 
             rows = charges_section.find_all("div", class_="row g-0")
