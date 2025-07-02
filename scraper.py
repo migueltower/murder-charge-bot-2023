@@ -52,15 +52,15 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
                         defendant_name = divs[i + 1].get_text(strip=True)
                     if "Description" in text and i + 1 < len(divs):
                         description = divs[i + 1].get_text(strip=True)
-                        total_charges +=1
+                        total_charges += 1
                         if "MURDER" in description.upper() or "MANSLAUGHTER" in description.upper():
                             charge_type = "MURDER" if "MURDER" in description.upper() else "MANSLAUGHTER"
                             if charge_type == "MURDER":
-                                murder_charges +=1
+                                murder_charges += 1
                             else:
-                                manslaughter_charges +=1
+                                manslaughter_charges += 1
                             disposition = ""
-                            for j in range(i+2, len(divs)):
+                            for j in range(i + 2, len(divs)):
                                 next_text = divs[j].get_text(strip=True)
                                 if "Disposition" in next_text and j + 1 < len(divs):
                                     disposition = divs[j + 1].get_text(strip=True)
@@ -76,7 +76,7 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
 
             print(f"{case_number} → Charges found: {total_charges}, Murder charges: {murder_charges}, Manslaughter charges: {manslaughter_charges}", flush=True)
 
-            sleep_time = random.uniform(3, 5)
+            sleep_time = random.uniform(4, 7)  # Increased delay
             time.sleep(sleep_time)
 
         except requests.exceptions.RequestException as e:
