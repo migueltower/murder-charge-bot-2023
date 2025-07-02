@@ -13,13 +13,6 @@ csv_file = "murder_charges.csv"
 
 print(f"🔁 Running case range: {start} to {end}", flush=True)
 
-ars_charge_map = {
-    "13-1102": "Negligent Homicide",
-    "13-1103": "Manslaughter",
-    "13-1104": "Second-Degree Murder",
-    "13-1105": "First-Degree Murder",
-}
-
 fieldnames = ["Case Number", "URL", "Charge", "Defendant", "Disposition"]
 with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
     writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -36,6 +29,10 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
 
             soup = BeautifulSoup(req.content, "html.parser")
 
+            if soup.find("p", class_="emphasis") and "no cases found" in soup.find("p", class_="emphasis").text.lower():
+                print(f"❌ No case found message detected for {case_number}", flush=True)
+                continue
+
             charges_section = soup.find("div", id="tblDocket12")
             if not charges_section:
                 print(f"No charges section found for {case_number}", flush=True)
@@ -45,47 +42,46 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
             print(f"Found {len(rows)} rows for {case_number}", flush=True)
 
             total_charges = 0
-            qualifying_charges = 0
+            murder_charges = 0
+            manslaughter_charges = 0
 
             for row in rows:
+                print(f"Processing row for {case_number}", flush=True)
                 divs = row.find_all("div")
                 defendant_name = ""
-                ars_code = ""
-                disposition = ""
+                found_disposition = False
                 for i in range(len(divs)):
                     text = divs[i].get_text(strip=True)
-
                     if "Party Name" in text and i + 1 < len(divs):
                         defendant_name = divs[i + 1].get_text(strip=True)
+                    if "Description" in text and i + 1 < len(divs):
+                        description = divs[i + 1].get_text(strip=True)
+                        total_charges += 1
+                        if "MURDER" in description.upper() or "MANSLAUGHTER" in description.upper():
+                            charge_type = "MURDER" if "MURDER" in description.upper() else "MANSLAUGHTER"
+                            if charge_type == "MURDER":
+                                murder_charges += 1
+                            else:
+                                manslaughter_charges += 1
+                            disposition = ""
+                            for j in range(i + 2, len(divs)):
+                                next_text = divs[j].get_text(strip=True)
+                                if "Disposition" in next_text and j + 1 < len(divs):
+                                    disposition = divs[j + 1].get_text(strip=True)
+                                    print(f"{case_number} → Found {charge_type} charge with disposition: {disposition}", flush=True)
+                                    break
+                            writer.writerow({
+                                "Case Number": case_number,
+                                "URL": url,
+                                "Charge": description,
+                                "Defendant": defendant_name,
+                                "Disposition": disposition
+                            })
 
-                    if "ARSCode" in text and i + 1 < len(divs):
-                        ars_code_full = divs[i + 1].get_text(strip=True)
-                        for ars_prefix, charge_name in ars_charge_map.items():
-                            if ars_prefix in ars_code_full:
-                                total_charges += 1
-                                qualifying_charges += 1
+            print(f"{case_number} → Charges found: {total_charges}, Murder charges: {murder_charges}, Manslaughter charges: {manslaughter_charges}", flush=True)
 
-                                # Find disposition if available
-                                for j in range(i + 2, len(divs)):
-                                    next_text = divs[j].get_text(strip=True)
-                                    if "Disposition" in next_text and j + 1 < len(divs):
-                                        disposition = divs[j + 1].get_text(strip=True)
-                                        break
-
-                                print(f"{case_number} → Found {charge_name} (ARS {ars_prefix}) with disposition: {disposition}", flush=True)
-
-                                writer.writerow({
-                                    "Case Number": case_number,
-                                    "URL": url,
-                                    "Charge": charge_name,
-                                    "Defendant": defendant_name,
-                                    "Disposition": disposition
-                                })
-                                break  # break out of ARSCode loop once one match is found
-
-            print(f"{case_number} → Charges found: {total_charges}, Homicide-related charges: {qualifying_charges}", flush=True)
-
-            time.sleep(random.uniform(4, 7))  # Respectful scraping delay
+            sleep_time = random.uniform(5, 8)
+            time.sleep(sleep_time)
 
         except requests.exceptions.RequestException as e:
             print(f"⚠️ Request error with {case_number}: {e}", flush=True)
