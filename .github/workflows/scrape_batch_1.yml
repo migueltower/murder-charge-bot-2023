@@ -1,48 +1,48 @@
-name: Murder Case Scraper (Batch 1)
+name: Run Murder Scraper
 
 on:
   workflow_dispatch:
     inputs:
-      start:
-        description: 'Start case number'
+      START:
+        description: "Start number (e.g. 0)"
         required: true
-        default: '0'
-      end:
-        description: 'End case number'
+        default: "0"
+      END:
+        description: "End number (e.g. 100)"
         required: true
-        default: '9999'
-      year:
-        description: 'Case year (e.g. 2023)'
+        default: "100"
+      YEAR:
+        description: "Year (e.g. 2024)"
         required: true
-        default: '2023'
+        default: "2024"
 
 jobs:
-  run-batch:
+  run-bot:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v2
         with:
           python-version: '3.11'
 
-      - name: Install pipenv
-        run: pip install pipenv
-
       - name: Install dependencies
-        run: pipenv install --skip-lock
+        run: |
+          python -m pip install --upgrade pip
+          pip install beautifulsoup4 requests
 
-      - name: Run scraper
+      - name: Run scraper in batches
         env:
-          START: ${{ github.event.inputs.start }}
-          END: ${{ github.event.inputs.end }}
-          YEAR: ${{ github.event.inputs.year }}
-        run: pipenv run python scraper.py
+          START: ${{ github.event.inputs.START }}
+          END: ${{ github.event.inputs.END }}
+          YEAR: ${{ github.event.inputs.YEAR }}
+        run: python fetch.py
 
-      - name: Upload CSV
+      - name: Upload all batch CSVs
         uses: actions/upload-artifact@v4
         with:
-          name: murder-charges-${{ github.event.inputs.start }}-${{ github.event.inputs.end }}
-          path: murder_charges.csv
+          name: all-results
+          path: |
+            *.csv
