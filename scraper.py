@@ -6,7 +6,6 @@ import os
 import random
 from datetime import datetime
 
-# Rotate User-Agents to simulate different browser sessions
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.1 Safari/605.1.15",
@@ -15,13 +14,10 @@ USER_AGENTS = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36"
 ]
 
-# Optional: List of rotating proxy IPs
 PROXIES = [
-    None,  # No proxy
     {"http": "http://123.456.789.001:8080", "https": "http://123.456.789.001:8080"},
     {"http": "http://123.456.789.002:8080", "https": "http://123.456.789.002:8080"},
     {"http": "http://123.456.789.003:8080", "https": "http://123.456.789.003:8080"}
-    # Add more if needed
 ]
 
 def timestamp():
@@ -41,16 +37,23 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
     writer.writeheader()
 
     current = start
+    proxy_attempt_limit = 5
+
     while current <= end:
         case_number = f"{prefix}{str(current).zfill(6)}"
-
+        proxy_retries = 0
         retrying = True
+        proxy_mode = False
+
         while retrying:
-            headers = {
-                "User-Agent": random.choice(USER_AGENTS)
-            }
-            proxy = random.choice(PROXIES)
-            proxy_display = proxy['http'] if proxy else "No proxy"
+            headers = {"User-Agent": random.choice(USER_AGENTS)}
+
+            if not proxy_mode:
+                proxy = None
+                proxy_display = "No proxy"
+            else:
+                proxy = PROXIES[proxy_retries % len(PROXIES)]
+                proxy_display = proxy['http']
 
             print(f"{timestamp()} [Proxy: {proxy_display}] Checking case: {case_number}", flush=True)
             url = f"https://www.superiorcourt.maricopa.gov/docket/CriminalCourtCases/caseInfo.asp?caseNumber={case_number}"
@@ -58,17 +61,25 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
             try:
                 req = requests.get(url, headers=headers, proxies=proxy, timeout=15)
                 print(f"{timestamp()} [Proxy: {proxy_display}] Request status: {req.status_code} URL: {req.url}", flush=True)
-
                 soup = BeautifulSoup(req.content, "html.parser")
 
                 if "Server busy. Please try again later." in soup.get_text():
-                    print(f"{timestamp()} [Proxy: {proxy_display}] 🔄 Server busy message detected. Rotating proxy and retrying...", flush=True)
-                    delay = random.uniform(60, 120)
-                    print(f"{timestamp()} [Proxy: {proxy_display}] ⏳ Sleeping for {int(delay)} seconds before retrying...\n", flush=True)
-                    time.sleep(delay)
-                    continue  # retry with new proxy
+                    print(f"{timestamp()} [Proxy: {proxy_display}] 🔄 Server busy message detected.", flush=True)
+                    if not proxy_mode:
+                        proxy_mode = True
+                        proxy_retries = 0
+                    else:
+                        proxy_retries += 1
+                        if proxy_retries >= proxy_attempt_limit:
+                            proxy_mode = False
+                            proxy_attempt_limit += 1
+                            delay = random.uniform(60, 120)
+                            print(f"{timestamp()} [Proxy: {proxy_display}] ⏳ Sleeping for {int(delay)}s before retrying...
+", flush=True)
+                            time.sleep(delay)
+                    continue
 
-                retrying = False  # no server busy message, continue normally
+                retrying = False
 
                 if soup.find("p", class_="emphasis") and "no cases found" in soup.find("p", class_="emphasis").text.lower():
                     print(f"{timestamp()} [Proxy: {proxy_display}] ❌ No case found message detected for {case_number}", flush=True)
