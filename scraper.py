@@ -74,8 +74,7 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
                             proxy_mode = False
                             proxy_attempt_limit += 1
                             delay = random.uniform(60, 120)
-                            print(f"{timestamp()} [Proxy: {proxy_display}] ⏳ Sleeping for {int(delay)}s before retrying...
-", flush=True)
+                            print(f"{timestamp()} [Proxy: {proxy_display}] ⏳ Sleeping for {int(delay)}s before retrying...", flush=True)
                             time.sleep(delay)
                     continue
 
