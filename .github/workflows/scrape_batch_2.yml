@@ -11,6 +11,10 @@ on:
         description: 'End case number'
         required: true
         default: '9999'
+      year:
+        description: 'Case year (e.g. 2023)'
+        required: true
+        default: '2023'
 
 jobs:
   run-batch:
@@ -34,6 +38,7 @@ jobs:
         env:
           START: ${{ github.event.inputs.start }}
           END: ${{ github.event.inputs.end }}
+          YEAR: ${{ github.event.inputs.year }}
         run: pipenv run python scraper.py
 
       - name: Upload CSV
