@@ -1,4 +1,4 @@
-name: Murder Case Scraper (Manual Range)
+name: Original Code
 
 on:
   workflow_dispatch:
