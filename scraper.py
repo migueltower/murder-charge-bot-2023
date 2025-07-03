@@ -5,6 +5,7 @@ import time
 import os
 from datetime import datetime
 
+
 def timestamp():
     return datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
 
@@ -12,16 +13,20 @@ start = int(os.getenv("START", 0))
 end = int(os.getenv("END", 9999))
 year = int(os.getenv("YEAR", 2023))
 prefix = f"CR{year}-"
-csv_file = f"charges_CR{year}_{start}-{end}.csv"
-
-print(f"{timestamp()} 🔁 Running case range: {start} to {end} for year {year}", flush=True)
 
 fieldnames = ["Case Number", "URL", "Charge", "Defendant", "Disposition"]
+
+current = start
+last_successful = start
+
+csv_file = f"charges_CR{year}_{start}-placeholder.csv"
+
 with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
     writer = csv.DictWriter(f, fieldnames=fieldnames)
     writer.writeheader()
 
-    current = start
+    print(f"{timestamp()} 🔁 Running case range: {start} to {end} for year {year}", flush=True)
+
     while current <= end:
         case_number = f"{prefix}{str(current).zfill(6)}"
 
@@ -37,6 +42,8 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
             if "Server busy. Please try again later." in soup.get_text():
                 print(f"{timestamp()} 🔄 Server busy message detected. Ending run.", flush=True)
                 break
+
+            last_successful = current
 
             if soup.find("p", class_="emphasis") and "no cases found" in soup.find("p", class_="emphasis").text.lower():
                 print(f"{timestamp()} ❌ No case found message detected for {case_number}", flush=True)
@@ -96,3 +103,9 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
             print(f"{timestamp()} ⚠️ General error with {case_number}: {e}", flush=True)
 
         current += 1
+
+final_csv_file = f"charges_CR{year}_{start}-{last_successful}.csv"
+os.rename(csv_file, final_csv_file)
+
+with open("last_case_run.txt", "w") as last_run_file:
+    last_run_file.write(f"{prefix}{str(last_successful).zfill(6)}")
