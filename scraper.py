@@ -1,94 +1,105 @@
-import os
-import time
 import requests
 from bs4 import BeautifulSoup
 import csv
+import time
+import os
+import random
 from datetime import datetime
 
-# Helper logger function with timestamp
-def log(message):
-    timestamp = datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
-    print(f"{timestamp} {message}", flush=True)
+def timestamp():
+    return datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
 
-# Read parameters from GitHub Action input
 start = int(os.getenv("START", 0))
-end = int(os.getenv("END", 100))
-year = int(os.getenv("YEAR", 2024))
-batch_size = 15
-
+end = int(os.getenv("END", 9999))
+year = int(os.getenv("YEAR", 2023))
 prefix = f"CR{year}-"
+csv_file = f"charges_CR{year}_{start}-{end}.csv"
 
-def scrape_batch(batch_case_numbers):
-    results = []
-    for case_number in batch_case_numbers:
-        log(f"Processing case: {case_number}")
-        url = f'https://www.superiorcourt.maricopa.gov/docket/CriminalCourtCases/caseInfo.asp?caseNumber={case_number}'
-        try:
-            req = requests.get(url, timeout=15)
-            soup = BeautifulSoup(req.content, "html.parser")
-            table = soup.find("div", id="tblDocket12")
-            first_charge = None
+print(f"{timestamp()} 🔁 Running case range: {start} to {end} for year {year}", flush=True)
 
-            if table:
-                rows = table.find_all("div", class_='row g-0')
+fieldnames = ["Case Number", "URL", "Charge", "Defendant", "Disposition"]
+with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
+    writer = csv.DictWriter(f, fieldnames=fieldnames)
+    writer.writeheader()
+
+    current = start
+    while current <= end:
+        batch = range(current, min(current + 15, end + 1))
+        print(f"\n{timestamp()} 🚀 Starting new batch: {batch.start} to {batch.stop - 1}", flush=True)
+
+        for i in batch:
+            case_number = f"{prefix}{str(i).zfill(6)}"
+            print(f"{timestamp()} Checking case: {case_number}", flush=True)
+            url = f"https://www.superiorcourt.maricopa.gov/docket/CriminalCourtCases/caseInfo.asp?caseNumber={case_number}"
+
+            try:
+                req = requests.get(url, timeout=15)
+                print(f"{timestamp()} Request status: {req.status_code} URL: {req.url}", flush=True)
+
+                soup = BeautifulSoup(req.content, "html.parser")
+
+                if soup.find("p", class_="emphasis") and "no cases found" in soup.find("p", class_="emphasis").text.lower():
+                    print(f"{timestamp()} ❌ No case found message detected for {case_number}", flush=True)
+                    continue
+
+                charges_section = soup.find("div", id="tblDocket12")
+                if not charges_section:
+                    print(f"{timestamp()} No charges section found for {case_number}", flush=True)
+                    snippet = soup.get_text(strip=True)[:300]
+                    print(f"{timestamp()} 🔎 Page preview for {case_number}: {snippet}", flush=True)
+                    continue
+
+                rows = charges_section.find_all("div", class_="row g-0")
+                print(f"{timestamp()} Found {len(rows)} rows for {case_number}", flush=True)
+
+                total_charges = 0
+                murder_charges = 0
+                manslaughter_charges = 0
+
                 for row in rows:
+                    print(f"{timestamp()} Processing row for {case_number}", flush=True)
                     divs = row.find_all("div")
-                    for i in range(len(divs)):
-                        if "Description" in divs[i].get_text(strip=True):
-                            description = divs[i + 1].get_text(strip=True)
-                            if not first_charge:
-                                first_charge = description
-                            if any(word in description.upper() for word in ["MURDER", "MANSLAUGHTER", "NEGLIGENT HOMICIDE"]):
-                                first_charge = description
-                                break
-                    else:
-                        continue
-                    break
+                    fields = [div.get_text(strip=True) for div in divs]
 
-            results.append({
-                "Case Number": case_number,
-                "URL": url,
-                "First Charge": first_charge or "No charge found"
-            })
+                    description = ""
+                    disposition = ""
+                    defendant_name = ""
 
-            log(f"{case_number} → Found charge: {first_charge or 'No charge found'}")
+                    for idx, text in enumerate(fields):
+                        if "Party Name" in text and idx + 1 < len(fields):
+                            defendant_name = fields[idx + 1]
+                        if "Description" in text and idx + 1 < len(fields):
+                            description = fields[idx + 1]
+                        if "Disposition" in text and idx + 1 < len(fields):
+                            disposition = fields[idx + 1]
 
-        except Exception as e:
-            log(f"Error with {url}: {e}")
-            results.append({
-                "Case Number": case_number,
-                "URL": url,
-                "First Charge": f"Error: {e}"
-            })
+                    if description:
+                        total_charges += 1
+                        if "MURDER" in description.upper() or "MANSLAUGHTER" in description.upper():
+                            charge_type = "MURDER" if "MURDER" in description.upper() else "MANSLAUGHTER"
+                            if charge_type == "MURDER":
+                                murder_charges += 1
+                            else:
+                                manslaughter_charges += 1
+                            print(f"{timestamp()} {case_number} → Found {charge_type} charge: '{description}' with disposition: {disposition}", flush=True)
+                            writer.writerow({
+                                "Case Number": case_number,
+                                "URL": url,
+                                "Charge": description,
+                                "Defendant": defendant_name,
+                                "Disposition": disposition
+                            })
 
-    # Write to CSV
-    first = batch_case_numbers[0].split('-')[-1]
-    last = batch_case_numbers[-1].split('-')[-1]
-    csv_filename = f"charges_{prefix}{first}-{last}.csv"
-    with open(csv_filename, mode="w", newline="", encoding="utf-8") as file:
-        writer = csv.DictWriter(file, fieldnames=["Case Number", "URL", "First Charge"])
-        writer.writeheader()
-        writer.writerows(results)
-    log(f"Saved {csv_filename}")
-    return csv_filename
+                print(f"{timestamp()} {case_number} → Charges found: {total_charges}, Murder charges: {murder_charges}, Manslaughter charges: {manslaughter_charges}", flush=True)
 
-# Create and process batches
-all_case_numbers = [f"{prefix}{str(i).zfill(6)}" for i in range(start, end + 1)]
-all_filenames = []
+                sleep_time = random.uniform(3, 30)
+                time.sleep(sleep_time)
 
-log(f"🔁 Running case range: {start} to {end} for year {year}")
+            except requests.exceptions.RequestException as e:
+                print(f"{timestamp()} ⚠️ Request error with {case_number}: {e}", flush=True)
+            except Exception as e:
+                print(f"{timestamp()} ⚠️ General error with {case_number}: {e}", flush=True)
 
-for i in range(0, len(all_case_numbers), batch_size):
-    batch = all_case_numbers[i:i + batch_size]
-    log(f"🚀 Starting new batch: {batch[0]} to {batch[-1]}")
-    filename = scrape_batch(batch)
-    all_filenames.append(filename)
-    if i + batch_size < len(all_case_numbers):
-        log("⏳ Pausing for 1 minute before next batch...")
+        current += 15
+        print(f"{timestamp()} ⏳ Sleeping for 60 seconds before next batch...\n", flush=True)
         time.sleep(60)
-
-# Save list of files for GitHub artifact step
-with open("csv_manifest.txt", "w") as f:
-    for name in all_filenames:
-        f.write(name + "\n")
-log("✅ All batches completed and CSV manifest written.")
