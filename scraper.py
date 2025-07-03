@@ -1,10 +1,9 @@
-import requests
+""import requests
 from bs4 import BeautifulSoup
 import csv
 import time
 import os
 from datetime import datetime
-
 
 def timestamp():
     return datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
@@ -18,6 +17,10 @@ fieldnames = ["Case Number", "URL", "Charge", "Defendant", "Disposition"]
 
 current = start
 last_successful = start
+
+# Track progress for triggering next workflow
+with open("progress.txt", "w") as prog:
+    prog.write(str(current))
 
 # Temporary file to be renamed later
 temp_csv_file = f"charges_CR{year}_{start}-placeholder.csv"
@@ -45,6 +48,8 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
                 break
 
             last_successful = current
+            with open("progress.txt", "w") as prog:
+                prog.write(str(last_successful + 1))
 
             if soup.find("p", class_="emphasis") and "no cases found" in soup.find("p", class_="emphasis").text.lower():
                 print(f"{timestamp()} ❌ No case found message detected for {case_number}", flush=True)
