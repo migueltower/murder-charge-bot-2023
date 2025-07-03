@@ -40,9 +40,9 @@ jobs:
           YEAR: ${{ github.event.inputs.YEAR }}
         run: python fetch.py
 
-     - name: Upload CSV artifact
+      - name: Upload all batch CSVs
         uses: actions/upload-artifact@v4
-  with:
-    name: results-charges_CR${{ github.event.inputs.YEAR }}_${{ github.event.inputs.START }}-${{ github.event.inputs.END }}
-    path: charges_CR${{ github.event.inputs.YEAR }}_${{ github.event.inputs.START }}-${{ github.event.inputs.END }}.csv
-
+        with:
+          name: all-results
+          path: |
+            *.csv
