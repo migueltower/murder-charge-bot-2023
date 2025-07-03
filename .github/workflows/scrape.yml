@@ -11,6 +11,10 @@ on:
         description: 'End case number'
         required: true
         default: '9999'
+      year:
+        description: 'Year of the case (e.g. 2023)'
+        required: true
+        default: '2023'
 
 jobs:
   run-manual-range:
@@ -34,10 +38,11 @@ jobs:
         env:
           START: ${{ github.event.inputs.start }}
           END: ${{ github.event.inputs.end }}
+          YEAR: ${{ github.event.inputs.year }}
         run: pipenv run python scraper.py
 
       - name: Upload CSV file
         uses: actions/upload-artifact@v4
         with:
-          name: murder-charges-${{ github.event.inputs.start }}-${{ github.event.inputs.end }}
+          name: murder-charges-${{ github.event.inputs.year }}-${{ github.event.inputs.start }}-${{ github.event.inputs.end }}
           path: murder_charges.csv
