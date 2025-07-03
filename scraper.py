@@ -18,75 +18,82 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
     writer = csv.DictWriter(f, fieldnames=fieldnames)
     writer.writeheader()
 
-    for i in range(start, end + 1):
-        case_number = f"{prefix}{str(i).zfill(6)}"
-        print(f"Checking case: {case_number}", flush=True)
-        url = f"https://www.superiorcourt.maricopa.gov/docket/CriminalCourtCases/caseInfo.asp?caseNumber={case_number}"
+    current = start
+    while current <= end:
+        batch = range(current, min(current + 15, end + 1))
+        print(f"\n🚀 Starting new batch: {batch.start} to {batch.stop - 1}", flush=True)
 
-        try:
-            req = requests.get(url, timeout=15)
-            print(f"Request status: {req.status_code} URL: {req.url}", flush=True)
+        for i in batch:
+            case_number = f"{prefix}{str(i).zfill(6)}"
+            print(f"Checking case: {case_number}", flush=True)
+            url = f"https://www.superiorcourt.maricopa.gov/docket/CriminalCourtCases/caseInfo.asp?caseNumber={case_number}"
 
-            soup = BeautifulSoup(req.content, "html.parser")
+            try:
+                req = requests.get(url, timeout=15)
+                print(f"Request status: {req.status_code} URL: {req.url}", flush=True)
 
-            if soup.find("p", class_="emphasis") and "no cases found" in soup.find("p", class_="emphasis").text.lower():
-                print(f"❌ No case found message detected for {case_number}", flush=True)
-                continue
+                soup = BeautifulSoup(req.content, "html.parser")
 
-            charges_section = soup.find("div", id="tblDocket12")
-            if not charges_section:
-                print(f"No charges section found for {case_number}", flush=True)
-                snippet = soup.get_text(strip=True)[:300]
-                print(f"🔎 Page preview for {case_number}: {snippet}", flush=True)
-                continue
+                if soup.find("p", class_="emphasis") and "no cases found" in soup.find("p", class_="emphasis").text.lower():
+                    print(f"❌ No case found message detected for {case_number}", flush=True)
+                    continue
 
-            rows = charges_section.find_all("div", class_="row g-0")
-            print(f"Found {len(rows)} rows for {case_number}", flush=True)
+                charges_section = soup.find("div", id="tblDocket12")
+                if not charges_section:
+                    print(f"No charges section found for {case_number}", flush=True)
+                    snippet = soup.get_text(strip=True)[:300]
+                    print(f"🔎 Page preview for {case_number}: {snippet}", flush=True)
+                    continue
 
-            total_charges = 0
-            murder_charges = 0
-            manslaughter_charges = 0
+                rows = charges_section.find_all("div", class_="row g-0")
+                print(f"Found {len(rows)} rows for {case_number}", flush=True)
 
-            for row in rows:
-                print(f"Processing row for {case_number}", flush=True)
-                divs = row.find_all("div")
-                fields = [div.get_text(strip=True) for div in divs]
+                total_charges = 0
+                murder_charges = 0
+                manslaughter_charges = 0
 
-                description = ""
-                disposition = ""
-                defendant_name = ""
+                for row in rows:
+                    print(f"Processing row for {case_number}", flush=True)
+                    divs = row.find_all("div")
+                    fields = [div.get_text(strip=True) for div in divs]
 
-                for idx, text in enumerate(fields):
-                    if "Party Name" in text and idx + 1 < len(fields):
-                        defendant_name = fields[idx + 1]
-                    if "Description" in text and idx + 1 < len(fields):
-                        description = fields[idx + 1]
-                    if "Disposition" in text and idx + 1 < len(fields):
-                        disposition = fields[idx + 1]
+                    description = ""
+                    disposition = ""
+                    defendant_name = ""
 
-                if description:
-                    total_charges += 1
-                    if "MURDER" in description.upper() or "MANSLAUGHTER" in description.upper():
-                        charge_type = "MURDER" if "MURDER" in description.upper() else "MANSLAUGHTER"
-                        if charge_type == "MURDER":
-                            murder_charges += 1
-                        else:
-                            manslaughter_charges += 1
-                        print(f"{case_number} → Found {charge_type} charge: '{description}' with disposition: {disposition}", flush=True)
-                        writer.writerow({
-                            "Case Number": case_number,
-                            "URL": url,
-                            "Charge": description,
-                            "Defendant": defendant_name,
-                            "Disposition": disposition
-                        })
+                    for idx, text in enumerate(fields):
+                        if "Party Name" in text and idx + 1 < len(fields):
+                            defendant_name = fields[idx + 1]
+                        if "Description" in text and idx + 1 < len(fields):
+                            description = fields[idx + 1]
+                        if "Disposition" in text and idx + 1 < len(fields):
+                            disposition = fields[idx + 1]
 
-            print(f"{case_number} → Charges found: {total_charges}, Murder charges: {murder_charges}, Manslaughter charges: {manslaughter_charges}", flush=True)
+                    if description:
+                        total_charges += 1
+                        if "MURDER" in description.upper() or "MANSLAUGHTER" in description.upper():
+                            charge_type = "MURDER" if "MURDER" in description.upper() else "MANSLAUGHTER"
+                            if charge_type == "MURDER":
+                                murder_charges += 1
+                            else:
+                                manslaughter_charges += 1
+                            print(f"{case_number} → Found {charge_type} charge: '{description}' with disposition: {disposition}", flush=True)
+                            writer.writerow({
+                                "Case Number": case_number,
+                                "URL": url,
+                                "Charge": description,
+                                "Defendant": defendant_name,
+                                "Disposition": disposition
+                            })
 
-            sleep_time = random.uniform(3, 30)
-            time.sleep(sleep_time)
+                print(f"{case_number} → Charges found: {total_charges}, Murder charges: {murder_charges}, Manslaughter charges: {manslaughter_charges}", flush=True)
 
-        except requests.exceptions.RequestException as e:
-            print(f"⚠️ Request error with {case_number}: {e}", flush=True)
-        except Exception as e:
-            print(f"⚠️ General error with {case_number}: {e}", flush=True)
+                sleep_time = random.uniform(3, 30)
+                time.sleep(sleep_time)
+
+            except requests.exceptions.RequestException as e:
+                print(f"⚠️ Request error with {case_number}: {e}", flush=True)
+            except Exception as e:
+                print(f"⚠️ General error with {case_number}: {e}", flush=True)
+
+        current += 15
