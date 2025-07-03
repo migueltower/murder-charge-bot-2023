@@ -1,4 +1,4 @@
-name: Run Murder Scraper Prox Change
+name: Run Murder Scraper
 
 on:
   workflow_dispatch:
@@ -38,11 +38,12 @@ jobs:
           START: ${{ inputs.START }}
           END: ${{ inputs.END }}
           YEAR: ${{ inputs.YEAR }}
-        run: python "scraper.py"
+        run: python scraper.py
 
-      - name: Upload all batch CSVs
+      - name: Upload CSV and log
         uses: actions/upload-artifact@v4
         with:
-          name: all-batch-csvs
+          name: output-files
           path: |
-            *.csv
+            charges_CR*.csv
+            last_case_run.txt
