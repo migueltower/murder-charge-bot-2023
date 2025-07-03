@@ -43,6 +43,6 @@ jobs:
       - name: Upload all batch CSVs
         uses: actions/upload-artifact@v4
         with:
-          name: all-results
+          name: all-batch-csvs
           path: |
             *.csv
