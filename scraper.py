@@ -79,6 +79,7 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
                     continue
 
                 retrying = False
+                proxy_attempt_limit = 5  # Reset attempt limit on success
 
                 if soup.find("p", class_="emphasis") and "no cases found" in soup.find("p", class_="emphasis").text.lower():
                     print(f"{timestamp()} [Proxy: {proxy_display}] ❌ No case found message detected for {case_number}", flush=True)
