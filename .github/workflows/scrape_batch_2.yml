@@ -1,4 +1,4 @@
-name: Murder Case Scraper (Batch 2)
+name: Scrape Batch of 15 and sleep
 
 on:
   workflow_dispatch:
