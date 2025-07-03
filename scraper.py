@@ -15,6 +15,15 @@ USER_AGENTS = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36"
 ]
 
+# Optional: List of rotating proxy IPs
+PROXIES = [
+    None,  # No proxy
+    {"http": "http://123.456.789.001:8080", "https": "http://123.456.789.001:8080"},
+    {"http": "http://123.456.789.002:8080", "https": "http://123.456.789.002:8080"},
+    {"http": "http://123.456.789.003:8080", "https": "http://123.456.789.003:8080"}
+    # Add more if needed
+]
+
 def timestamp():
     return datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
 
@@ -36,10 +45,11 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
         batch = range(current, min(current + 15, end + 1))
         print(f"\n{timestamp()} 🚀 Starting new batch: {batch.start} to {batch.stop - 1}", flush=True)
 
-        # Rotate User-Agent
+        # Rotate User-Agent and Proxy
         headers = {
             "User-Agent": random.choice(USER_AGENTS)
         }
+        proxy = random.choice(PROXIES)
 
         for i in batch:
             case_number = f"{prefix}{str(i).zfill(6)}"
@@ -47,7 +57,7 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
             url = f"https://www.superiorcourt.maricopa.gov/docket/CriminalCourtCases/caseInfo.asp?caseNumber={case_number}"
 
             try:
-                req = requests.get(url, headers=headers, timeout=15)
+                req = requests.get(url, headers=headers, proxies=proxy, timeout=15)
                 print(f"{timestamp()} Request status: {req.status_code} URL: {req.url}", flush=True)
 
                 soup = BeautifulSoup(req.content, "html.parser")
@@ -112,3 +122,7 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
                 print(f"{timestamp()} ⚠️ General error with {case_number}: {e}", flush=True)
 
         current += 15
+
+        delay = random.uniform(60, 120)
+        print(f"{timestamp()} ⏳ Sleeping for {int(delay)} seconds before next batch...\n", flush=True)
+        time.sleep(delay)
