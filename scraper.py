@@ -6,6 +6,15 @@ import os
 import random
 from datetime import datetime
 
+# Rotate User-Agents to simulate different browser sessions
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.1 Safari/605.1.15",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:101.0) Gecko/20100101 Firefox/101.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36"
+]
+
 def timestamp():
     return datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
 
@@ -27,13 +36,18 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
         batch = range(current, min(current + 15, end + 1))
         print(f"\n{timestamp()} 🚀 Starting new batch: {batch.start} to {batch.stop - 1}", flush=True)
 
+        # Rotate User-Agent
+        headers = {
+            "User-Agent": random.choice(USER_AGENTS)
+        }
+
         for i in batch:
             case_number = f"{prefix}{str(i).zfill(6)}"
             print(f"{timestamp()} Checking case: {case_number}", flush=True)
             url = f"https://www.superiorcourt.maricopa.gov/docket/CriminalCourtCases/caseInfo.asp?caseNumber={case_number}"
 
             try:
-                req = requests.get(url, timeout=15)
+                req = requests.get(url, headers=headers, timeout=15)
                 print(f"{timestamp()} Request status: {req.status_code} URL: {req.url}", flush=True)
 
                 soup = BeautifulSoup(req.content, "html.parser")
@@ -92,14 +106,9 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
 
                 print(f"{timestamp()} {case_number} → Charges found: {total_charges}, Murder charges: {murder_charges}, Manslaughter charges: {manslaughter_charges}", flush=True)
 
-                sleep_time = random.uniform(3, 30)
-                time.sleep(sleep_time)
-
             except requests.exceptions.RequestException as e:
                 print(f"{timestamp()} ⚠️ Request error with {case_number}: {e}", flush=True)
             except Exception as e:
                 print(f"{timestamp()} ⚠️ General error with {case_number}: {e}", flush=True)
 
         current += 15
-        print(f"{timestamp()} ⏳ Sleeping for 60 seconds before next batch...\n", flush=True)
-        time.sleep(60)
