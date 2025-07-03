@@ -42,18 +42,16 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
 
     current = start
     while current <= end:
-        batch = range(current, min(current + 15, end + 1))
-        print(f"\n{timestamp()} 🚀 Starting new batch: {batch.start} to {batch.stop - 1}", flush=True)
+        case_number = f"{prefix}{str(current).zfill(6)}"
 
-        # Rotate User-Agent and Proxy
-        headers = {
-            "User-Agent": random.choice(USER_AGENTS)
-        }
-        proxy = random.choice(PROXIES)
-        proxy_display = proxy['http'] if proxy else "No proxy"
+        retrying = True
+        while retrying:
+            headers = {
+                "User-Agent": random.choice(USER_AGENTS)
+            }
+            proxy = random.choice(PROXIES)
+            proxy_display = proxy['http'] if proxy else "No proxy"
 
-        for i in batch:
-            case_number = f"{prefix}{str(i).zfill(6)}"
             print(f"{timestamp()} [Proxy: {proxy_display}] Checking case: {case_number}", flush=True)
             url = f"https://www.superiorcourt.maricopa.gov/docket/CriminalCourtCases/caseInfo.asp?caseNumber={case_number}"
 
@@ -63,67 +61,70 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
 
                 soup = BeautifulSoup(req.content, "html.parser")
 
+                if "Server busy. Please try again later." in soup.get_text():
+                    print(f"{timestamp()} [Proxy: {proxy_display}] 🔄 Server busy message detected. Rotating proxy and retrying...", flush=True)
+                    delay = random.uniform(60, 120)
+                    print(f"{timestamp()} [Proxy: {proxy_display}] ⏳ Sleeping for {int(delay)} seconds before retrying...\n", flush=True)
+                    time.sleep(delay)
+                    continue  # retry with new proxy
+
+                retrying = False  # no server busy message, continue normally
+
                 if soup.find("p", class_="emphasis") and "no cases found" in soup.find("p", class_="emphasis").text.lower():
                     print(f"{timestamp()} [Proxy: {proxy_display}] ❌ No case found message detected for {case_number}", flush=True)
-                    continue
+                else:
+                    charges_section = soup.find("div", id="tblDocket12")
+                    if not charges_section:
+                        print(f"{timestamp()} [Proxy: {proxy_display}] No charges section found for {case_number}", flush=True)
+                        snippet = soup.get_text(strip=True)[:300]
+                        print(f"{timestamp()} [Proxy: {proxy_display}] 🔎 Page preview for {case_number}: {snippet}", flush=True)
+                    else:
+                        rows = charges_section.find_all("div", class_="row g-0")
+                        print(f"{timestamp()} [Proxy: {proxy_display}] Found {len(rows)} rows for {case_number}", flush=True)
 
-                charges_section = soup.find("div", id="tblDocket12")
-                if not charges_section:
-                    print(f"{timestamp()} [Proxy: {proxy_display}] No charges section found for {case_number}", flush=True)
-                    snippet = soup.get_text(strip=True)[:300]
-                    print(f"{timestamp()} [Proxy: {proxy_display}] 🔎 Page preview for {case_number}: {snippet}", flush=True)
-                    continue
+                        total_charges = 0
+                        murder_charges = 0
+                        manslaughter_charges = 0
 
-                rows = charges_section.find_all("div", class_="row g-0")
-                print(f"{timestamp()} [Proxy: {proxy_display}] Found {len(rows)} rows for {case_number}", flush=True)
+                        for row in rows:
+                            print(f"{timestamp()} [Proxy: {proxy_display}] Processing row for {case_number}", flush=True)
+                            divs = row.find_all("div")
+                            fields = [div.get_text(strip=True) for div in divs]
 
-                total_charges = 0
-                murder_charges = 0
-                manslaughter_charges = 0
+                            description = ""
+                            disposition = ""
+                            defendant_name = ""
 
-                for row in rows:
-                    print(f"{timestamp()} [Proxy: {proxy_display}] Processing row for {case_number}", flush=True)
-                    divs = row.find_all("div")
-                    fields = [div.get_text(strip=True) for div in divs]
+                            for idx, text in enumerate(fields):
+                                if "Party Name" in text and idx + 1 < len(fields):
+                                    defendant_name = fields[idx + 1]
+                                if "Description" in text and idx + 1 < len(fields):
+                                    description = fields[idx + 1]
+                                if "Disposition" in text and idx + 1 < len(fields):
+                                    disposition = fields[idx + 1]
 
-                    description = ""
-                    disposition = ""
-                    defendant_name = ""
+                            if description:
+                                total_charges += 1
+                                if "MURDER" in description.upper() or "MANSLAUGHTER" in description.upper():
+                                    charge_type = "MURDER" if "MURDER" in description.upper() else "MANSLAUGHTER"
+                                    if charge_type == "MURDER":
+                                        murder_charges += 1
+                                    else:
+                                        manslaughter_charges += 1
+                                    print(f"{timestamp()} [Proxy: {proxy_display}] {case_number} → Found {charge_type} charge: '{description}' with disposition: {disposition}", flush=True)
+                                    writer.writerow({
+                                        "Case Number": case_number,
+                                        "URL": url,
+                                        "Charge": description,
+                                        "Defendant": defendant_name,
+                                        "Disposition": disposition
+                                    })
 
-                    for idx, text in enumerate(fields):
-                        if "Party Name" in text and idx + 1 < len(fields):
-                            defendant_name = fields[idx + 1]
-                        if "Description" in text and idx + 1 < len(fields):
-                            description = fields[idx + 1]
-                        if "Disposition" in text and idx + 1 < len(fields):
-                            disposition = fields[idx + 1]
-
-                    if description:
-                        total_charges += 1
-                        if "MURDER" in description.upper() or "MANSLAUGHTER" in description.upper():
-                            charge_type = "MURDER" if "MURDER" in description.upper() else "MANSLAUGHTER"
-                            if charge_type == "MURDER":
-                                murder_charges += 1
-                            else:
-                                manslaughter_charges += 1
-                            print(f"{timestamp()} [Proxy: {proxy_display}] {case_number} → Found {charge_type} charge: '{description}' with disposition: {disposition}", flush=True)
-                            writer.writerow({
-                                "Case Number": case_number,
-                                "URL": url,
-                                "Charge": description,
-                                "Defendant": defendant_name,
-                                "Disposition": disposition
-                            })
-
-                print(f"{timestamp()} [Proxy: {proxy_display}] {case_number} → Charges found: {total_charges}, Murder charges: {murder_charges}, Manslaughter charges: {manslaughter_charges}", flush=True)
+                        print(f"{timestamp()} [Proxy: {proxy_display}] {case_number} → Charges found: {total_charges}, Murder charges: {murder_charges}, Manslaughter charges: {manslaughter_charges}", flush=True)
 
             except requests.exceptions.RequestException as e:
                 print(f"{timestamp()} [Proxy: {proxy_display}] ⚠️ Request error with {case_number}: {e}", flush=True)
             except Exception as e:
                 print(f"{timestamp()} [Proxy: {proxy_display}] ⚠️ General error with {case_number}: {e}", flush=True)
 
-        current += 15
-
-        delay = random.uniform(60, 120)
-        print(f"{timestamp()} [Proxy: {proxy_display}] ⏳ Sleeping for {int(delay)} seconds before next batch...\n", flush=True)
-        time.sleep(delay)
+        current += 1
