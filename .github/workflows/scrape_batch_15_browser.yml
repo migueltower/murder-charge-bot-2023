@@ -1,4 +1,4 @@
-name: Run Murder Scraper Print 15
+name: Run Murder Scraper Prox Change
 
 on:
   workflow_dispatch:
@@ -21,10 +21,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
@@ -33,12 +33,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install beautifulsoup4 requests
 
-      - name: Run scraper in batches
+      - name: Run scraper
         env:
           START: ${{ inputs.START }}
           END: ${{ inputs.END }}
           YEAR: ${{ inputs.YEAR }}
-        run: python fetch.py
+        run: python "scraper.py"
 
       - name: Upload all batch CSVs
         uses: actions/upload-artifact@v4
