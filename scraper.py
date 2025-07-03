@@ -7,11 +7,11 @@ import random
 
 start = int(os.getenv("START", 0))
 end = int(os.getenv("END", 9999))
-year = 2023
+year = int(os.getenv("YEAR", 2023))
 prefix = f"CR{year}-"
 csv_file = "murder_charges.csv"
 
-print(f"🔁 Running case range: {start} to {end}", flush=True)
+print(f"🔁 Running case range: {start} to {end} for year {year}", flush=True)
 
 fieldnames = ["Case Number", "URL", "Charge", "Defendant", "Disposition"]
 with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
@@ -83,7 +83,7 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
 
             print(f"{case_number} → Charges found: {total_charges}, Murder charges: {murder_charges}, Manslaughter charges: {manslaughter_charges}", flush=True)
 
-            sleep_time = random.uniform(10, 30)
+            sleep_time = random.uniform(3, 30)
             time.sleep(sleep_time)
 
         except requests.exceptions.RequestException as e:
