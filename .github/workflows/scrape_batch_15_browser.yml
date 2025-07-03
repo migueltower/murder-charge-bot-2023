@@ -35,9 +35,9 @@ jobs:
 
       - name: Run scraper in batches
         env:
-          START: ${{ github.event.inputs.START }}
-          END: ${{ github.event.inputs.END }}
-          YEAR: ${{ github.event.inputs.YEAR }}
+          START: ${{ inputs.START }}
+          END: ${{ inputs.END }}
+          YEAR: ${{ inputs.YEAR }}
         run: python fetch.py
 
       - name: Upload all batch CSVs
