@@ -19,9 +19,10 @@ fieldnames = ["Case Number", "URL", "Charge", "Defendant", "Disposition"]
 current = start
 last_successful = start
 
-csv_file = f"charges_CR{year}_{start}-placeholder.csv"
+# Temporary file to be renamed later
+temp_csv_file = f"charges_CR{year}_{start}-placeholder.csv"
 
-with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
+with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
     writer = csv.DictWriter(f, fieldnames=fieldnames)
     writer.writeheader()
 
@@ -105,7 +106,4 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
         current += 1
 
 final_csv_file = f"charges_CR{year}_{start}-{last_successful}.csv"
-os.rename(csv_file, final_csv_file)
-
-with open("last_case_run.txt", "w") as last_run_file:
-    last_run_file.write(f"{prefix}{str(last_successful).zfill(6)}")
+os.rename(temp_csv_file, final_csv_file)
