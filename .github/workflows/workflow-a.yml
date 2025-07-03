@@ -1,0 +1,61 @@
+name: Workflow A
+
+on:
+  workflow_dispatch:
+    inputs:
+      END:
+        description: "Final case number (e.g. 170000)"
+        required: true
+        default: "170000"
+  repository_dispatch:
+    types: [continue-with-a]
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install beautifulsoup4 requests
+
+      - name: Read progress file
+        id: read_progress
+        run: |
+          if [ -f progress.txt ]; then
+            echo "Found progress.txt"
+            export START=$(cat progress.txt)
+          else
+            echo "progress.txt not found, defaulting to 1"
+            export START=1
+          fi
+          echo "START=$START" >> $GITHUB_ENV
+
+      - name: Run scraper
+        env:
+          START: ${{ env.START }}
+          END: ${{ inputs.END }}
+        run: python scraper.py
+
+      - name: Upload CSV
+        uses: actions/upload-artifact@v4
+        with:
+          name: csv-from-A
+          path: charges_CR*.csv
+
+      - name: Trigger Workflow B
+        if: success()
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/dispatches \
+            -d '{"event_type": "continue-with-b"}'
