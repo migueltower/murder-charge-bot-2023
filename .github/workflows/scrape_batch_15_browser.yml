@@ -1,4 +1,4 @@
-name: Run Murder Scraper
+name: Run Murder Scraper Until Server Busy
 
 on:
   workflow_dispatch:
@@ -17,7 +17,7 @@ on:
         default: "2024"
 
 jobs:
-  run-bot:
+  run-scraper:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -40,10 +40,14 @@ jobs:
           YEAR: ${{ inputs.YEAR }}
         run: python scraper.py
 
-      - name: Upload CSV and log
+      - name: Find the output CSV filename
+        id: find_csv
+        run: |
+          FILE=$(ls charges_CR${{ inputs.YEAR }}_${{ inputs.START }}-*.csv | head -n 1)
+          echo "csv_name=$FILE" >> $GITHUB_OUTPUT
+
+      - name: Upload CSV artifact
         uses: actions/upload-artifact@v4
         with:
-          name: output-files
-          path: |
-            charges_CR*.csv
-            last_case_run.txt
+          name: ${{ steps.find_csv.outputs.csv_name }}
+          path: ${{ steps.find_csv.outputs.csv_name }}
