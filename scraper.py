@@ -50,38 +50,39 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
             "User-Agent": random.choice(USER_AGENTS)
         }
         proxy = random.choice(PROXIES)
+        proxy_display = proxy['http'] if proxy else "No proxy"
 
         for i in batch:
             case_number = f"{prefix}{str(i).zfill(6)}"
-            print(f"{timestamp()} Checking case: {case_number}", flush=True)
+            print(f"{timestamp()} [Proxy: {proxy_display}] Checking case: {case_number}", flush=True)
             url = f"https://www.superiorcourt.maricopa.gov/docket/CriminalCourtCases/caseInfo.asp?caseNumber={case_number}"
 
             try:
                 req = requests.get(url, headers=headers, proxies=proxy, timeout=15)
-                print(f"{timestamp()} Request status: {req.status_code} URL: {req.url}", flush=True)
+                print(f"{timestamp()} [Proxy: {proxy_display}] Request status: {req.status_code} URL: {req.url}", flush=True)
 
                 soup = BeautifulSoup(req.content, "html.parser")
 
                 if soup.find("p", class_="emphasis") and "no cases found" in soup.find("p", class_="emphasis").text.lower():
-                    print(f"{timestamp()} ❌ No case found message detected for {case_number}", flush=True)
+                    print(f"{timestamp()} [Proxy: {proxy_display}] ❌ No case found message detected for {case_number}", flush=True)
                     continue
 
                 charges_section = soup.find("div", id="tblDocket12")
                 if not charges_section:
-                    print(f"{timestamp()} No charges section found for {case_number}", flush=True)
+                    print(f"{timestamp()} [Proxy: {proxy_display}] No charges section found for {case_number}", flush=True)
                     snippet = soup.get_text(strip=True)[:300]
-                    print(f"{timestamp()} 🔎 Page preview for {case_number}: {snippet}", flush=True)
+                    print(f"{timestamp()} [Proxy: {proxy_display}] 🔎 Page preview for {case_number}: {snippet}", flush=True)
                     continue
 
                 rows = charges_section.find_all("div", class_="row g-0")
-                print(f"{timestamp()} Found {len(rows)} rows for {case_number}", flush=True)
+                print(f"{timestamp()} [Proxy: {proxy_display}] Found {len(rows)} rows for {case_number}", flush=True)
 
                 total_charges = 0
                 murder_charges = 0
                 manslaughter_charges = 0
 
                 for row in rows:
-                    print(f"{timestamp()} Processing row for {case_number}", flush=True)
+                    print(f"{timestamp()} [Proxy: {proxy_display}] Processing row for {case_number}", flush=True)
                     divs = row.find_all("div")
                     fields = [div.get_text(strip=True) for div in divs]
 
@@ -105,7 +106,7 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
                                 murder_charges += 1
                             else:
                                 manslaughter_charges += 1
-                            print(f"{timestamp()} {case_number} → Found {charge_type} charge: '{description}' with disposition: {disposition}", flush=True)
+                            print(f"{timestamp()} [Proxy: {proxy_display}] {case_number} → Found {charge_type} charge: '{description}' with disposition: {disposition}", flush=True)
                             writer.writerow({
                                 "Case Number": case_number,
                                 "URL": url,
@@ -114,15 +115,15 @@ with open(csv_file, mode="w", newline="", encoding="utf-8") as f:
                                 "Disposition": disposition
                             })
 
-                print(f"{timestamp()} {case_number} → Charges found: {total_charges}, Murder charges: {murder_charges}, Manslaughter charges: {manslaughter_charges}", flush=True)
+                print(f"{timestamp()} [Proxy: {proxy_display}] {case_number} → Charges found: {total_charges}, Murder charges: {murder_charges}, Manslaughter charges: {manslaughter_charges}", flush=True)
 
             except requests.exceptions.RequestException as e:
-                print(f"{timestamp()} ⚠️ Request error with {case_number}: {e}", flush=True)
+                print(f"{timestamp()} [Proxy: {proxy_display}] ⚠️ Request error with {case_number}: {e}", flush=True)
             except Exception as e:
-                print(f"{timestamp()} ⚠️ General error with {case_number}: {e}", flush=True)
+                print(f"{timestamp()} [Proxy: {proxy_display}] ⚠️ General error with {case_number}: {e}", flush=True)
 
         current += 15
 
         delay = random.uniform(60, 120)
-        print(f"{timestamp()} ⏳ Sleeping for {int(delay)} seconds before next batch...\n", flush=True)
+        print(f"{timestamp()} [Proxy: {proxy_display}] ⏳ Sleeping for {int(delay)} seconds before next batch...\n", flush=True)
         time.sleep(delay)
