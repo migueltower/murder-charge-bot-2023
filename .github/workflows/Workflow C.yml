@@ -7,6 +7,7 @@ on:
 jobs:
   run-scraper-c:
     runs-on: ubuntu-latest
+    if: github.event_name == 'repository_dispatch'
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -36,8 +37,8 @@ jobs:
             *.csv
             progress.txt
 
-      - name: Trigger Workflow B if not finished
-        if: always()
+      - name: Trigger Workflow B if not cancelled and not finished
+        if: ${{ github.event_name == 'repository_dispatch' && job.status != 'cancelled' }}
         run: |
           NEXT_START=$(cat progress.txt)
           if [ "$NEXT_START" -lt "${{ github.event.client_payload.end }}" ]; then
