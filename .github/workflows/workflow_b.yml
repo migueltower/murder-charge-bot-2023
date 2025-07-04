@@ -29,14 +29,20 @@ jobs:
           YEAR: ${{ github.event.client_payload.year }}
         run: python scraper.py
 
-      - name: Upload CSV if any
+      - name: Create named zip if CSV exists
         if: success() && hashFiles('*.csv') != ''
+        run: |
+          ZIP_NAME=$(ls charges_CR*.csv | sed 's/.csv$/.zip/')
+          CSV_NAME=$(ls charges_CR*.csv)
+          zip "$ZIP_NAME" "$CSV_NAME" progress.txt
+          echo "ZIPPED_FILE=$ZIP_NAME" >> $GITHUB_ENV
+
+      - name: Upload named artifact
+        if: success() && env.ZIPPED_FILE != ''
         uses: actions/upload-artifact@v4
         with:
-          name: charges-output
-          path: |
-            *.csv
-            progress.txt
+          name: ${{ env.ZIPPED_FILE }}
+          path: ${{ env.ZIPPED_FILE }}
 
       - name: Trigger Workflow C if not finished
         if: success()
