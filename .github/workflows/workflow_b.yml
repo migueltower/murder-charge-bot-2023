@@ -21,7 +21,7 @@ jobs:
           pip install --upgrade pip
           pip install beautifulsoup4 requests
 
-      - name: Run scraper
+      - name: Run scraper with payload
         env:
           START: ${{ github.event.client_payload.start }}
           END: ${{ github.event.client_payload.end }}
@@ -35,3 +35,13 @@ jobs:
           path: |
             *.csv
             progress.txt
+
+      - name: Trigger Workflow A
+        if: always()
+        run: |
+          NEXT_START=$(cat progress.txt)
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/dispatches \
+            -d "{\"event_type\":\"continue-with-a\",\"client_payload\":{\"start\":\"$NEXT_START\",\"end\":\"${{ github.event.client_payload.end }}\",\"year\":\"${{ github.event.client_payload.year }}\"}}"
