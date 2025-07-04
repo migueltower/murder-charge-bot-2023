@@ -36,7 +36,7 @@ jobs:
             *.csv
             progress.txt
 
-      - name: Trigger Workflow A
+      - name: Trigger Workflow C
         if: always()
         run: |
           NEXT_START=$(cat progress.txt)
@@ -44,4 +44,4 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
             -H "Accept: application/vnd.github+json" \
             https://api.github.com/repos/${{ github.repository }}/dispatches \
-            -d "{\"event_type\":\"continue-with-a\",\"client_payload\":{\"start\":\"$NEXT_START\",\"end\":\"${{ github.event.client_payload.end }}\",\"year\":\"${{ github.event.client_payload.year }}\"}}"
+            -d "{\"event_type\":\"continue-with-c\",\"client_payload\":{\"start\":\"$NEXT_START\",\"end\":\"${{ github.event.client_payload.end }}\",\"year\":\"${{ github.event.client_payload.year }}\"}}"
