@@ -1,0 +1,47 @@
+name: Workflow C - Continue Scraper
+
+on:
+  repository_dispatch:
+    types: [continue-with-c]
+
+jobs:
+  run-scraper-c:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install beautifulsoup4 requests
+
+      - name: Run scraper with payload
+        env:
+          START: ${{ github.event.client_payload.start }}
+          END: ${{ github.event.client_payload.end }}
+          YEAR: ${{ github.event.client_payload.year }}
+        run: python scraper.py
+
+      - name: Upload CSV results
+        uses: actions/upload-artifact@v4
+        with:
+          name: charges-output
+          path: |
+            *.csv
+            progress.txt
+
+      - name: Trigger Workflow B
+        if: always()
+        run: |
+          NEXT_START=$(cat progress.txt)
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/dispatches \
+            -d "{\"event_type\":\"continue-with-b\",\"client_payload\":{\"start\":\"$NEXT_START\",\"end\":\"${{ github.event.client_payload.end }}\",\"year\":\"${{ github.event.client_payload.year }}\"}}"
