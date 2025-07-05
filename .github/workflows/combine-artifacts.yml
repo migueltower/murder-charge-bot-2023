@@ -1,4 +1,4 @@
-name: Combine Murder Charge CSVs
+name: Combine All Scraper CSVs
 
 on:
   workflow_dispatch:
@@ -6,55 +6,51 @@ on:
 jobs:
   combine-csvs:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repo (with full history)
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - name: Install unzip and jq
+      - name: Set up directories
         run: |
-          sudo apt-get update
-          sudo apt-get install -y unzip jq
+          mkdir -p downloads extracted combined
 
-      - name: Authenticate GitHub CLI
+      - name: Authenticate with GitHub CLI
         run: echo "${{ secrets.GH_TOKEN }}" | gh auth login --with-token
 
-      - name: Create download folders
-        run: |
-          mkdir -p downloads combined extracted
-
-      - name: Get recent workflow runs and download artifacts
+      - name: Download all artifacts from workflows A, B, and C
+        env:
+          GH_REPO: ${{ github.repository }}
         run: |
           for wf in "Workflow A - Run Scraper" "Workflow B - Continue Scraper" "Workflow C - Continue Scraper"; do
             echo "Fetching runs for $wf"
-            runs=$(gh run list --workflow="$wf" --limit 20 --json databaseId,status -q '.[] | select(.status == "completed") | .databaseId')
-
-            for run_id in $runs; do
+            gh run list --workflow="$wf" --limit=20 --json databaseId,status,name -q '.[] | select(.status=="completed") | .databaseId' |
+            while read -r run_id; do
               echo "Downloading artifacts for run $run_id"
-              gh run download "$run_id" --dir downloads --name charges-output || echo "No artifact found for run $run_id"
+              gh run download "$run_id" --dir downloads || echo "No artifacts found for run $run_id"
             done
           done
 
-      - name: Unzip all artifacts and extract CSVs
+      - name: Extract all zips
         run: |
-          find downloads -name '*.zip' | while read zip; do
-            unzip -o "$zip" -d extracted
+          find downloads -name '*.zip' | while read zipfile; do
+            unzip -o "$zipfile" -d extracted/
           done
 
-      - name: Combine all CSVs into one
+      - name: Combine all CSVs
         run: |
-          header_written=false
-          for csv in extracted/*.csv; do
-            if [ -f "$csv" ]; then
-              if [ "$header_written" = false ]; then
-                cat "$csv" > combined/combined_charges.csv
-                header_written=true
-              else
-                tail -n +2 "$csv" >> combined/combined_charges.csv
+          if compgen -G "extracted/*.csv" > /dev/null; then
+            header_written=false
+            for csv in extracted/*.csv; do
+              if [ -f "$csv" ]; then
+                if [ "$header_written" = false ]; then
+                  cat "$csv" > combined/combined_charges.csv
+                  header_written=true
+                else
+                  tail -n +2 "$csv" >> combined/combined_charges.csv
+                fi
               fi
-            fi
-          done
+            done
+          else
+            echo "No CSV files found to combine."
+          fi
 
       - name: Upload combined CSV
         if: success() && hashFiles('combined/combined_charges.csv') != ''
