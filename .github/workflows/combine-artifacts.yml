@@ -1,4 +1,4 @@
-name: Combine CSV Artifacts
+name: Combine Artifacts
 
 on:
   workflow_dispatch:
@@ -6,35 +6,91 @@ on:
 jobs:
   combine-csvs:
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: read
+      actions: read
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          path: all_artifacts
-          merge-multiple: true
+          python-version: '3.11'
 
-      - name: List downloaded artifacts (debug)
+      - name: Install unzip and jq
         run: |
-          echo "Contents of all_artifacts:"
-          ls -R all_artifacts || echo "No artifacts found"
+          sudo apt-get update
+          sudo apt-get install -y unzip jq
 
-      - name: Extract all ZIPs
+      - name: Get all workflow runs
+        id: get_runs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runs = await github.rest.actions.listWorkflowRunsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 50,
+              status: 'success'
+            });
+
+            const artifactUrls = []
+            for (const run of runs.data.workflow_runs) {
+              const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: run.id
+              });
+              for (const artifact of artifacts.data.artifacts) {
+                if (artifact.name.startsWith('charges_CR')) {
+                  artifactUrls.push({
+                    url: artifact.archive_download_url,
+                    name: artifact.name
+                  });
+                }
+              }
+            }
+
+            require('fs').writeFileSync('artifact_list.json', JSON.stringify(artifactUrls, null, 2));
+
+      - name: Download artifacts from list
+        run: |
+          mkdir -p downloads
+          gh auth setup-git
+          gh auth login --with-token <<< "$GITHUB_TOKEN"
+
+          for url in $(jq -r '.[].url' artifact_list.json); do
+            name=$(jq -r ".[] | select(.url==\"$url\") | .name" artifact_list.json)
+            curl -L -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github+json" "$url" -o downloads/${name}.zip
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Unzip all CSVs
         run: |
           mkdir -p extracted
-          find all_artifacts -name '*.zip' -exec unzip -o {} -d extracted \;
+          for file in downloads/*.zip; do
+            unzip -o "$file" -d extracted/
+          done
 
-      - name: Combine CSVs
+      - name: Combine all CSVs
         run: |
-          mkdir -p combined
-          head -n 1 $(find extracted -name '*.csv' | head -n 1) > combined/combined_charges.csv
-          find extracted -name '*.csv' | xargs tail -n +2 >> combined/combined_charges.csv
+          header_written=false
+          mkdir -p output
+          output_file=output/combined_charges.csv
+          for csv in extracted/*.csv; do
+            if [ "$header_written" = false ]; then
+              cat "$csv" > "$output_file"
+              header_written=true
+            else
+              tail -n +2 "$csv" >> "$output_file"
+            fi
+          done
 
       - name: Upload combined CSV
         uses: actions/upload-artifact@v4
         with:
-          name: combined-charges
-          path: combined/combined_charges.csv
+          name: combined_charges
+          path: output/combined_charges.csv
