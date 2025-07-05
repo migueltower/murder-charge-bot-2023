@@ -17,12 +17,13 @@ fieldnames = ["Case Number", "URL", "Charge", "Defendant", "Disposition"]
 
 current = start
 last_successful = start
+found_relevant_charge = False
 
 # Track progress for triggering next workflow
 with open("progress.txt", "w") as prog:
     prog.write(str(current))
 
-# Temporary file to be renamed later
+# Temporary file to be renamed later only if relevant charges are found
 temp_csv_file = f"charges_CR{year}_{start}-placeholder.csv"
 
 with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
@@ -63,10 +64,6 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
                     rows = charges_section.find_all("div", class_="row g-0")
                     print(f"{timestamp()} Found {len(rows)} rows for {case_number}", flush=True)
 
-                    total_charges = 0
-                    murder_charges = 0
-                    manslaughter_charges = 0
-
                     for row in rows:
                         print(f"{timestamp()} Processing row for {case_number}", flush=True)
                         divs = row.find_all("div")
@@ -84,24 +81,17 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
                             if "Disposition" in text and idx + 1 < len(fields):
                                 disposition = fields[idx + 1]
 
-                        if description:
-                            total_charges += 1
-                            if "MURDER" in description.upper() or "MANSLAUGHTER" in description.upper():
-                                charge_type = "MURDER" if "MURDER" in description.upper() else "MANSLAUGHTER"
-                                if charge_type == "MURDER":
-                                    murder_charges += 1
-                                else:
-                                    manslaughter_charges += 1
-                                print(f"{timestamp()} {case_number} → Found {charge_type} charge: '{description}' with disposition: {disposition}", flush=True)
-                                writer.writerow({
-                                    "Case Number": case_number,
-                                    "URL": url,
-                                    "Charge": description,
-                                    "Defendant": defendant_name,
-                                    "Disposition": disposition
-                                })
-
-                    print(f"{timestamp()} {case_number} → Charges found: {total_charges}, Murder charges: {murder_charges}, Manslaughter charges: {manslaughter_charges}", flush=True)
+                        if description and ("MURDER" in description.upper() or "MANSLAUGHTER" in description.upper()):
+                            charge_type = "MURDER" if "MURDER" in description.upper() else "MANSLAUGHTER"
+                            print(f"{timestamp()} {case_number} → Found {charge_type} charge: '{description}' with disposition: {disposition}", flush=True)
+                            writer.writerow({
+                                "Case Number": case_number,
+                                "URL": url,
+                                "Charge": description,
+                                "Defendant": defendant_name,
+                                "Disposition": disposition
+                            })
+                            found_relevant_charge = True
 
         except requests.exceptions.RequestException as e:
             print(f"{timestamp()} ⚠️ Request error with {case_number}: {e}", flush=True)
@@ -110,5 +100,11 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
 
         current += 1
 
-final_csv_file = f"charges_CR{year}_{start}-{last_successful}.csv"
-os.rename(temp_csv_file, final_csv_file)
+# Only preserve the file if relevant charges found
+if found_relevant_charge:
+    final_csv_file = f"charges_CR{year}_{start}-{last_successful}.csv"
+    os.rename(temp_csv_file, final_csv_file)
+    print(f"{timestamp()} ✅ CSV file saved: {final_csv_file}", flush=True)
+else:
+    os.remove(temp_csv_file)
+    print(f"{timestamp()} ❌ No murder or manslaughter charges found. CSV not saved.", flush=True)
