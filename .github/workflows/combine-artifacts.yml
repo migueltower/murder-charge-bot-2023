@@ -1,13 +1,14 @@
-name: Combine All Artifacts
+name: Combine CSV Artifacts
 
 on:
   workflow_dispatch:
 
 jobs:
-  combine-artifacts:
+  combine-csvs:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v3
 
       - name: Download all artifacts
@@ -16,36 +17,24 @@ jobs:
           path: all_artifacts
           merge-multiple: true
 
-      - name: Check if any artifacts were downloaded
+      - name: List downloaded artifacts (debug)
         run: |
-          if [ ! -d "all_artifacts" ] || [ -z "$(ls -A all_artifacts)" ]; then
-            echo "❌ No artifacts downloaded. Exiting."
-            exit 0
-          fi
+          echo "Contents of all_artifacts:"
+          ls -R all_artifacts || echo "No artifacts found"
 
-      - name: Unzip all zipped CSVs
+      - name: Extract all ZIPs
         run: |
           mkdir -p extracted
-          find all_artifacts -name "*.zip" -exec unzip -o {} -d extracted \;
+          find all_artifacts -name '*.zip' -exec unzip -o {} -d extracted \;
 
-      - name: Combine all CSVs into one
+      - name: Combine CSVs
         run: |
           mkdir -p combined
-          OUTPUT="combined/charges_combined.csv"
-          FIRST=1
-          for file in extracted/*.csv; do
-            if [ $FIRST -eq 1 ]; then
-              cat "$file" > "$OUTPUT"
-              FIRST=0
-            else
-              tail -n +2 "$file" >> "$OUTPUT"
-            fi
-          done
-          echo "✅ Combined CSV saved to $OUTPUT"
+          head -n 1 $(find extracted -name '*.csv' | head -n 1) > combined/combined_charges.csv
+          find extracted -name '*.csv' | xargs tail -n +2 >> combined/combined_charges.csv
 
       - name: Upload combined CSV
-        if: success() && hashFiles('combined/charges_combined.csv') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: charges_combined
-          path: combined/charges_combined.csv
+          name: combined-charges
+          path: combined/combined_charges.csv
