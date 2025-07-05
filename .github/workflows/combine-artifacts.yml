@@ -1,96 +1,51 @@
-name: Combine Artifacts
+name: Collect and Combine CSVs
 
 on:
   workflow_dispatch:
 
 jobs:
-  combine-csvs:
+  collect:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: read
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Set up GitHub CLI
+        uses: cli/cli-action@v1
         with:
-          python-version: '3.11'
+          version: latest
 
-      - name: Install unzip and jq
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y unzip jq
+      - name: Authenticate GitHub CLI
+        run: gh auth login --with-token <<< "${{ secrets.GH_TOKEN }}"
 
-      - name: Get all workflow runs
-        id: get_runs
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const runs = await github.rest.actions.listWorkflowRunsForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              per_page: 50,
-              status: 'success'
-            });
-
-            const artifactUrls = []
-            for (const run of runs.data.workflow_runs) {
-              const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                run_id: run.id
-              });
-              for (const artifact of artifacts.data.artifacts) {
-                if (artifact.name.startsWith('charges_CR')) {
-                  artifactUrls.push({
-                    url: artifact.archive_download_url,
-                    name: artifact.name
-                  });
-                }
-              }
-            }
-
-            require('fs').writeFileSync('artifact_list.json', JSON.stringify(artifactUrls, null, 2));
-
-      - name: Download artifacts from list
+      - name: List and download artifacts
         run: |
           mkdir -p downloads
-          gh auth setup-git
-          gh auth login --with-token <<< "$GITHUB_TOKEN"
+          runs=$(gh run list --limit 50 --json databaseId -q '.[].databaseId')
 
-          for url in $(jq -r '.[].url' artifact_list.json); do
-            name=$(jq -r ".[] | select(.url==\"$url\") | .name" artifact_list.json)
-            curl -L -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-              -H "Accept: application/vnd.github+json" "$url" -o downloads/${name}.zip
+          for run_id in $runs; do
+            echo "🔽 Downloading artifacts for run $run_id"
+            gh run download "$run_id" -D downloads || echo "❌ Failed to download from $run_id"
           done
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Unzip all CSVs
+      - name: Extract all zip files
         run: |
           mkdir -p extracted
-          for file in downloads/*.zip; do
-            unzip -o "$file" -d extracted/
-          done
+          find downloads -name '*.zip' -exec unzip -o {} -d extracted \;
 
-      - name: Combine all CSVs
+      - name: Combine CSVs
         run: |
-          header_written=false
-          mkdir -p output
-          output_file=output/combined_charges.csv
-          for csv in extracted/*.csv; do
-            if [ "$header_written" = false ]; then
-              cat "$csv" > "$output_file"
-              header_written=true
-            else
-              tail -n +2 "$csv" >> "$output_file"
+          header_saved=false
+          output_file="combined_charges.csv"
+          > $output_file
+
+          for csv in $(find extracted -name '*.csv'); do
+            if ! $header_saved; then
+              head -n 1 "$csv" > $output_file
+              header_saved=true
             fi
+            tail -n +2 "$csv" >> $output_file
           done
 
       - name: Upload combined CSV
         uses: actions/upload-artifact@v4
         with:
-          name: combined_charges
-          path: output/combined_charges.csv
+          name: combined-charges
+          path: combined_charges.csv
