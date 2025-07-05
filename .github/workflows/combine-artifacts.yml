@@ -1,20 +1,15 @@
-name: Combine All CSV Artifacts
-
-on:
-  workflow_dispatch:
-
-jobs:
-  combine-artifacts:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
-
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: all_artifacts
           merge-multiple: true
+
+      - name: Check if any artifacts were downloaded
+        run: |
+          if [ ! -d "all_artifacts" ] || [ -z "$(ls -A all_artifacts)" ]; then
+            echo "❌ No artifacts downloaded. Exiting."
+            exit 0
+          fi
 
       - name: Unzip all zipped CSVs
         run: |
@@ -37,6 +32,7 @@ jobs:
           echo "✅ Combined CSV saved to $OUTPUT"
 
       - name: Upload combined CSV
+        if: success() && hashFiles('combined/charges_combined.csv') != ''
         uses: actions/upload-artifact@v4
         with:
           name: charges_combined
