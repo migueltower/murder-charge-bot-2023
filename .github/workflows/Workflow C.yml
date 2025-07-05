@@ -1,60 +1,60 @@
-name: Combine All Scraper CSVs
+name: Workflow C - Continue Scraper
 
 on:
-  workflow_dispatch:
+  repository_dispatch:
+    types: [continue-with-c]
 
 jobs:
-  combine-csvs:
+  run-scraper-c:
+    if: ${{ github.event.action != 'cancelled' }}
     runs-on: ubuntu-latest
-
     steps:
-      - name: Set up directories
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
         run: |
-          mkdir -p downloads extracted combined
+          pip install --upgrade pip
+          pip install beautifulsoup4 requests
 
-      - name: Authenticate with GitHub CLI
-        run: echo "${{ secrets.GH_TOKEN }}" | gh auth login --with-token
-
-      - name: Download all artifacts from workflows A, B, and C
+      - name: Run scraper with payload
         env:
-          GH_REPO: ${{ github.repository }}
-        run: |
-          for wf in "Workflow A - Run Scraper" "Workflow B - Continue Scraper" "Workflow C - Continue Scraper"; do
-            echo "Fetching runs for $wf"
-            gh run list --workflow="$wf" --limit=20 --json databaseId,status,name -q '.[] | select(.status=="completed") | .databaseId' |
-            while read -r run_id; do
-              echo "Downloading artifacts for run $run_id"
-              gh run download "$run_id" --dir downloads || echo "No artifacts found for run $run_id"
-            done
-          done
+          START: ${{ github.event.client_payload.start }}
+          END: ${{ github.event.client_payload.end }}
+          YEAR: ${{ github.event.client_payload.year }}
+        run: python scraper.py
 
-      - name: Extract all zips
+      - name: Create named zip if CSV exists
+        if: success() && hashFiles('*.csv') != ''
         run: |
-          find downloads -name '*.zip' | while read zipfile; do
-            unzip -o "$zipfile" -d extracted/
-          done
+          ZIP_NAME=$(ls charges_CR*.csv | sed 's/.csv$/.zip/')
+          CSV_NAME=$(ls charges_CR*.csv)
+          zip "$ZIP_NAME" "$CSV_NAME" progress.txt
+          echo "ZIPPED_FILE=$ZIP_NAME" >> $GITHUB_ENV
 
-      - name: Combine all CSVs
-        run: |
-          if compgen -G "extracted/*.csv" > /dev/null; then
-            header_written=false
-            for csv in extracted/*.csv; do
-              if [ -f "$csv" ]; then
-                if [ "$header_written" = false ]; then
-                  cat "$csv" > combined/combined_charges.csv
-                  header_written=true
-                else
-                  tail -n +2 "$csv" >> combined/combined_charges.csv
-                fi
-              fi
-            done
-          else
-            echo "No CSV files found to combine."
-          fi
-
-      - name: Upload combined CSV
-        if: success() && hashFiles('combined/combined_charges.csv') != ''
+      - name: Upload named artifact
+        if: success() && env.ZIPPED_FILE != ''
         uses: actions/upload-artifact@v4
         with:
-          name: combined-charges
-          path: combined/combined_charges.csv
+          name: ${{ env.ZIPPED_FILE }}
+          path: ${{ env.ZIPPED_FILE }}
+
+      - name: Trigger Workflow B if not finished
+        if: success()
+        run: |
+          NEXT_START=$(cat progress.txt)
+          if [ "$NEXT_START" -lt "${{ github.event.client_payload.end }}" ]; then
+            echo "🔁 Triggering Workflow B"
+            curl -X POST \
+              -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
+              -H "Accept: application/vnd.github+json" \
+              https://api.github.com/repos/${{ github.repository }}/dispatches \
+              -d "{\"event_type\":\"continue-with-b\",\"client_payload\":{\"start\":\"$NEXT_START\",\"end\":\"${{ github.event.client_payload.end }}\",\"year\":\"${{ github.event.client_payload.year }}\"}}"
+          else
+            echo "✅ Workflow C finished full range."
+          fi
