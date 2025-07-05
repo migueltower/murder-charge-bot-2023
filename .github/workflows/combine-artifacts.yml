@@ -7,22 +7,21 @@ jobs:
   collect:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up GitHub CLI
-        uses: cli/cli-action@v1
-        with:
-          version: latest
+      - name: Install GitHub CLI
+        run: |
+          sudo apt update
+          sudo apt install -y gh
 
       - name: Authenticate GitHub CLI
-        run: gh auth login --with-token <<< "${{ secrets.GH_TOKEN }}"
+        run: echo "${{ secrets.GH_TOKEN }}" | gh auth login --with-token
 
-      - name: List and download artifacts
+      - name: Download recent artifacts
         run: |
           mkdir -p downloads
           runs=$(gh run list --limit 50 --json databaseId -q '.[].databaseId')
-
           for run_id in $runs; do
             echo "🔽 Downloading artifacts for run $run_id"
-            gh run download "$run_id" -D downloads || echo "❌ Failed to download from $run_id"
+            gh run download "$run_id" -D downloads || echo "⚠️ No artifacts for $run_id"
           done
 
       - name: Extract all zip files
@@ -35,7 +34,6 @@ jobs:
           header_saved=false
           output_file="combined_charges.csv"
           > $output_file
-
           for csv in $(find extracted -name '*.csv'); do
             if ! $header_saved; then
               head -n 1 "$csv" > $output_file
