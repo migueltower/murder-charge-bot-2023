@@ -1,49 +1,64 @@
-name: Collect and Combine CSVs
+name: Combine Murder Charge CSVs
 
 on:
   workflow_dispatch:
 
 jobs:
-  collect:
+  combine-csvs:
     runs-on: ubuntu-latest
     steps:
-      - name: Install GitHub CLI
+      - name: Checkout repo (with full history)
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Install unzip and jq
         run: |
-          sudo apt update
-          sudo apt install -y gh
+          sudo apt-get update
+          sudo apt-get install -y unzip jq
 
       - name: Authenticate GitHub CLI
         run: echo "${{ secrets.GH_TOKEN }}" | gh auth login --with-token
 
-      - name: Download recent artifacts
+      - name: Create download folders
         run: |
-          mkdir -p downloads
-          runs=$(gh run list --limit 50 --json databaseId -q '.[].databaseId')
-          for run_id in $runs; do
-            echo "🔽 Downloading artifacts for run $run_id"
-            gh run download "$run_id" -D downloads || echo "⚠️ No artifacts for $run_id"
+          mkdir -p downloads combined extracted
+
+      - name: Get recent workflow runs and download artifacts
+        run: |
+          for wf in "Workflow A - Run Scraper" "Workflow B - Continue Scraper" "Workflow C - Continue Scraper"; do
+            echo "Fetching runs for $wf"
+            runs=$(gh run list --workflow="$wf" --limit 20 --json databaseId,status -q '.[] | select(.status == "completed") | .databaseId')
+
+            for run_id in $runs; do
+              echo "Downloading artifacts for run $run_id"
+              gh run download "$run_id" --dir downloads --name charges-output || echo "No artifact found for run $run_id"
+            done
           done
 
-      - name: Extract all zip files
+      - name: Unzip all artifacts and extract CSVs
         run: |
-          mkdir -p extracted
-          find downloads -name '*.zip' -exec unzip -o {} -d extracted \;
+          find downloads -name '*.zip' | while read zip; do
+            unzip -o "$zip" -d extracted
+          done
 
-      - name: Combine CSVs
+      - name: Combine all CSVs into one
         run: |
-          header_saved=false
-          output_file="combined_charges.csv"
-          > $output_file
-          for csv in $(find extracted -name '*.csv'); do
-            if ! $header_saved; then
-              head -n 1 "$csv" > $output_file
-              header_saved=true
+          header_written=false
+          for csv in extracted/*.csv; do
+            if [ -f "$csv" ]; then
+              if [ "$header_written" = false ]; then
+                cat "$csv" > combined/combined_charges.csv
+                header_written=true
+              else
+                tail -n +2 "$csv" >> combined/combined_charges.csv
+              fi
             fi
-            tail -n +2 "$csv" >> $output_file
           done
 
       - name: Upload combined CSV
+        if: success() && hashFiles('combined/combined_charges.csv') != ''
         uses: actions/upload-artifact@v4
         with:
           name: combined-charges
-          path: combined_charges.csv
+          path: combined/combined_charges.csv
