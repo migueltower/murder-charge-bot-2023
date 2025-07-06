@@ -31,6 +31,11 @@ jobs:
             | jq -r '.artifacts[] | select(.expired == false) | "\(.id) \(.name)"' \
             > artifact_list.txt
 
+          if [ ! -s artifact_list.txt ]; then
+            echo "⚠️ No artifacts found to download. Exiting early."
+            exit 0
+          fi
+
           while IFS=" " read -r id name; do
             echo "⬇️ Downloading artifact: $name (ID: $id)"
             curl -L -s -H "Authorization: token $GITHUB_TOKEN" \
@@ -42,18 +47,33 @@ jobs:
       - name: Extract all CSVs
         run: |
           mkdir -p extracted_csvs
+          COUNT=$(find artifacts_raw -name '*.zip' | wc -l)
+          echo "🗃️ Found $COUNT zip files to extract."
+
+          if [ "$COUNT" -eq 0 ]; then
+            echo "❌ No zip files found in artifacts_raw/. Exiting."
+            exit 0
+          fi
+
           for zip in artifacts_raw/*.zip; do
-            unzip -o "$zip" '*.csv' -d extracted_csvs/
+            echo "📦 Extracting $zip..."
+            unzip -o "$zip" '*.csv' -d extracted_csvs/ || echo "⚠️ Failed to unzip $zip"
           done
 
       - name: Combine all CSVs
         run: |
           COMBINED=combined_charges_$(date +%Y%m%d_%H%M%S).csv
-          head -n 1 $(ls extracted_csvs/*.csv | head -n1) > "$COMBINED"
-          tail -n +2 -q extracted_csvs/*.csv >> "$COMBINED"
-          echo "✅ Combined CSV created: $COMBINED"
+          if ls extracted_csvs/*.csv 1> /dev/null 2>&1; then
+            head -n 1 $(ls extracted_csvs/*.csv | head -n1) > "$COMBINED"
+            tail -n +2 -q extracted_csvs/*.csv >> "$COMBINED"
+            echo "✅ Combined CSV created: $COMBINED"
+          else
+            echo "❌ No CSVs found to combine."
+            exit 0
+          fi
 
       - name: Upload combined CSV
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: combined-charges-csv
