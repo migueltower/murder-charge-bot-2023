@@ -30,11 +30,11 @@ jobs:
         run: python scraper.py
 
       - name: Create named zip if CSV exists
-        if: success() && hashFiles('*.csv') != ''
+        if: success() && hashFiles('charges_CR*.csv') != ''
         run: |
           ZIP_NAME=$(ls charges_CR*.csv | sed 's/.csv$/.zip/')
           CSV_NAME=$(ls charges_CR*.csv)
-          zip "$ZIP_NAME" "$CSV_NAME" progress.txt
+          zip "$ZIP_NAME" "$CSV_NAME" progress.txt || true
           echo "ZIPPED_FILE=$ZIP_NAME" >> $GITHUB_ENV
 
       - name: Upload named artifact
@@ -45,7 +45,7 @@ jobs:
           path: ${{ env.ZIPPED_FILE }}
 
       - name: Trigger Workflow B if not finished
-        if: success()
+        if: success() && hashFiles('progress.txt') != ''
         run: |
           NEXT_START=$(cat progress.txt)
           if [ "$NEXT_START" -lt "${{ github.event.client_payload.end }}" ]; then
