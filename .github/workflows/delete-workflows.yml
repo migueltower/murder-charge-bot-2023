@@ -9,7 +9,7 @@ jobs:
     steps:
       - name: Delete all workflow runs in every page
         env:
-          GH_PAT: ${{ secrets.GH_PAT }}
+          GH_TOKENN: ${{ secrets.GH_TOKENN }}
           REPO: ${{ github.repository }}
         run: |
           echo "🔍 Deleting all workflow runs for $REPO..."
@@ -30,7 +30,7 @@ jobs:
 
             for RUN_ID in $RUN_IDS; do
               echo "🗑️ Deleting run ID: $RUN_ID"
-              curl -s -X DELETE -H "Authorization: Bearer $GH_PAT" \
+              curl -s -X DELETE -H "Authorization: Bearer $GH_TOKKEN" \
                 -H "Accept: application/vnd.github+json" \
                 "https://api.github.com/repos/$REPO/actions/runs/$RUN_ID"
             done
