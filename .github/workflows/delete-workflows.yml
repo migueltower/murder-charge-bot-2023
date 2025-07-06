@@ -1,40 +1,23 @@
-name: Delete All Workflow Runs
+name: Delete Workflow Runs
 
 on:
   workflow_dispatch:
 
 jobs:
-  delete-all:
+  cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Delete all workflow runs in every page
+      - name: Delete old workflow runs
         env:
-          GH_TOKENN: ${{ secrets.GH_TOKENN }}
+          GH_PAT: ${{ secrets.GH_TOKENN }}
           REPO: ${{ github.repository }}
         run: |
-          echo "🔍 Deleting all workflow runs for $REPO..."
-          PAGE=1
+          echo "Getting workflow runs for $REPO"
+          RUNS=$(curl -s -H "Authorization: Bearer $GH_PAT" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/actions/runs?per_page=500" | jq '.workflow_runs[].id')
 
-          while true; do
-            echo "Fetching page $PAGE..."
-            RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKENN" \
-              -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/$REPO/actions/runs?per_page=100&page=$PAGE")
-
-            RUN_IDS=$(echo "$RESPONSE" | jq '.workflow_runs | select(. != null) | .[].id')
-
-            if [ -z "$RUN_IDS" ]; then
-              echo "✅ No more workflow runs found."
-              break
-            fi
-
-            for RUN_ID in $RUN_IDS; do
-              echo "🗑️ Deleting run ID: $RUN_ID"
-              curl -s -X DELETE -H "Authorization: Bearer $GH_TOKKEN" \
-                -H "Accept: application/vnd.github+json" \
-                "https://api.github.com/repos/$REPO/actions/runs/$RUN_ID"
-            done
-
-            PAGE=$((PAGE + 1))
-            sleep 1  # avoid rate limits
+          for RUN_ID in $RUNS; do
+            echo "Deleting run $RUN_ID"
+            curl -s -X DELETE -H "Authorization: Bearer $GH_PAT" -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$REPO/actions/runs/$RUN_ID"
           done
