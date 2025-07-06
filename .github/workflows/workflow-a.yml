@@ -1,4 +1,4 @@
-name: Workflow A - Run Scraper
+name: Workflow A - Run Scrapers
 
 on:
   workflow_dispatch:
