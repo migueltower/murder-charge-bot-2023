@@ -55,9 +55,18 @@ jobs:
             exit 0
           fi
 
-          for zip in artifacts_raw/*.zip; do
-            echo "📦 Extracting $zip..."
-            unzip -o "$zip" '*.csv' -d extracted_csvs/ || echo "⚠️ Failed to unzip $zip"
+          for zipfile in artifacts_raw/*.zip; do
+            echo "📦 Inspecting outer zip: $zipfile"
+            unzip -q -d extracted_csvs/temp_outer "$zipfile"
+            inner_zip=$(find extracted_csvs/temp_outer -name '*.zip' | head -n 1)
+
+            if [ -n "$inner_zip" ]; then
+              echo "📦 Extracting inner zip: $inner_zip"
+              unzip -o "$inner_zip" '*.csv' -d extracted_csvs/ || echo "⚠️ Failed to unzip inner $inner_zip"
+            else
+              echo "⚠️ No inner zip found in $zipfile"
+            fi
+            rm -rf extracted_csvs/temp_outer
           done
 
       - name: Combine all CSVs
