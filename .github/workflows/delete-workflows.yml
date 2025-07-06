@@ -9,7 +9,7 @@ jobs:
     steps:
       - name: Delete old workflow runs
         env:
-          GH_PAT: ${{ secrets.GH_PAT }}
+          GH_PAT: ${{ secrets.GH_TOKENN }}
           REPO: ${{ github.repository }}
         run: |
           echo "Getting workflow runs for $REPO"
