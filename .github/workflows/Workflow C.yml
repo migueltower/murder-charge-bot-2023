@@ -1,4 +1,4 @@
-name: Workflow C - Continue Scraper
+name: Workflow C - Continue Scrapers
 
 on:
   repository_dispatch:
