@@ -43,10 +43,16 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
             print(f"{timestamp()} Request status: {req.status_code} URL: {req.url}", flush=True)
 
             soup = BeautifulSoup(req.content, "html.parser")
+            page_text = soup.get_text(strip=True)
 
-            if "Server busy. Please try again later." in soup.get_text():
+            if "Server busy. Please try again later." in page_text:
                 print(f"{timestamp()} 🔄 Server busy message detected. Ending run.", flush=True)
                 break
+            elif "Please try again later" in page_text or "temporarily unavailable" in page_text:
+                print(f"{timestamp()} ⚠️ Similar server message detected. Snippet:\n{page_text[:300]}", flush=True)
+                break
+            else:
+                print(f"{timestamp()} ℹ️ Page snippet for {case_number}: {page_text[:300]}", flush=True)
 
             last_successful = current
             with open("progress.txt", "w") as prog:
@@ -58,8 +64,6 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
                 charges_section = soup.find("div", id="tblDocket12")
                 if not charges_section:
                     print(f"{timestamp()} No charges section found for {case_number}", flush=True)
-                    snippet = soup.get_text(strip=True)[:300]
-                    print(f"{timestamp()} 🔎 Page preview for {case_number}: {snippet}", flush=True)
                 else:
                     rows = charges_section.find_all("div", class_="row g-0")
                     print(f"{timestamp()} Found {len(rows)} rows for {case_number}", flush=True)
