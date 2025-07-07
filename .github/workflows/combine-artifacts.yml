@@ -20,7 +20,7 @@ jobs:
 
       - name: List and download all artifacts from workflows A, B, C
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKENN }}
         run: |
           mkdir artifacts_raw
           echo "🔍 Fetching artifact list from GitHub..."
