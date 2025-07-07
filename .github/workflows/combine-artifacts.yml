@@ -25,21 +25,27 @@ jobs:
           mkdir artifacts_raw
           echo "🔍 Fetching artifact list from GitHub..."
 
-          # Get full artifact metadata and print workflow/job names
+          RESPONSE_FILE=raw_artifacts.json
+
           curl -s -H "Authorization: token $GITHUB_TOKEN" \
                -H "Accept: application/vnd.github+json" \
                https://api.github.com/repos/${{ github.repository }}/actions/artifacts \
-            > raw_artifacts.json
+               -o "$RESPONSE_FILE"
 
-          echo "🧾 Logging artifact names:"
-          jq -r '.artifacts[] | select(.expired == false) | "- \(.name) (ID: \(.id))"' raw_artifacts.json || echo "⚠️ Failed to parse artifact list."
+          echo "📄 Raw API response (first 20 lines):"
+          head -n 20 "$RESPONSE_FILE"
 
-          jq -r '.artifacts[] | select(.expired == false) | "\(.id) \(.name)"' raw_artifacts.json > artifact_list.txt
+          ARTIFACT_COUNT=$(jq '.artifacts | length' "$RESPONSE_FILE" 2>/dev/null || echo 0)
 
-          if [ ! -s artifact_list.txt ]; then
+          if [ "$ARTIFACT_COUNT" -eq 0 ]; then
             echo "⚠️ No artifacts found to download. Exiting early."
             exit 0
           fi
+
+          echo "🧾 Listing artifact names:"
+          jq -r '.artifacts[] | select(.expired == false) | "- \(.name) (ID: \(.id))"' "$RESPONSE_FILE" || echo "⚠️ Failed to parse artifact names."
+
+          jq -r '.artifacts[] | select(.expired == false) | "\(.id) \(.name)"' "$RESPONSE_FILE" > artifact_list.txt
 
           while IFS=" " read -r id name; do
             echo "⬇️ Downloading artifact: $name (ID: $id)"
