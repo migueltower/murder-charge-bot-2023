@@ -25,11 +25,16 @@ jobs:
           mkdir artifacts_raw
           echo "🔍 Fetching artifact list from GitHub..."
 
+          # Get full artifact metadata and print workflow/job names
           curl -s -H "Authorization: token $GITHUB_TOKEN" \
                -H "Accept: application/vnd.github+json" \
                https://api.github.com/repos/${{ github.repository }}/actions/artifacts \
-            | jq -r '.artifacts[] | select(.expired == false) | "\(.id) \(.name)"' \
-            > artifact_list.txt
+            > raw_artifacts.json
+
+          echo "🧾 Logging artifact names:"
+          jq -r '.artifacts[] | select(.expired == false) | "- \(.name) (ID: \(.id))"' raw_artifacts.json || echo "⚠️ Failed to parse artifact list."
+
+          jq -r '.artifacts[] | select(.expired == false) | "\(.id) \(.name)"' raw_artifacts.json > artifact_list.txt
 
           if [ ! -s artifact_list.txt ]; then
             echo "⚠️ No artifacts found to download. Exiting early."
