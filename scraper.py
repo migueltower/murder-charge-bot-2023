@@ -32,6 +32,16 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
 
     print(f"{timestamp()} 🔁 Running case range: {start} to {end} for year {year}", flush=True)
 
+    session = requests.Session()
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://www.superiorcourt.maricopa.gov/",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1"
+    }
+
     while current <= end:
         case_number = f"{prefix}{str(current).zfill(6)}"
 
@@ -39,16 +49,15 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
         url = f"https://www.superiorcourt.maricopa.gov/docket/CriminalCourtCases/caseInfo.asp?caseNumber={case_number}"
 
         try:
-            req = requests.get(url, timeout=15)
+            req = session.get(url, headers=headers, timeout=15)
             print(f"{timestamp()} Request status: {req.status_code} URL: {req.url}", flush=True)
 
-            content_raw = req.content
-            if not content_raw.strip():
+            if not req.content.strip():
                 print(f"{timestamp()} ⚠️ Empty response body for {case_number}. Status: {req.status_code}", flush=True)
-                print(f"{timestamp()} 🔎 Response headers: {req.headers}", flush=True)
+                print(f"{timestamp()} 🔎 Response headers: {dict(req.headers)}", flush=True)
                 break
 
-            soup = BeautifulSoup(content_raw, "html.parser")
+            soup = BeautifulSoup(req.content, "html.parser")
             page_text = soup.get_text(strip=True)
 
             if "Server busy. Please try again later." in page_text:
