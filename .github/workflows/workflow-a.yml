@@ -43,8 +43,8 @@ jobs:
       - name: Create named zip if CSV exists
         if: success() && hashFiles('charges_CR*.csv') != ''
         run: |
-          ZIP_NAME=$(ls charges_CR*.csv | sed 's/.csv$/.zip/')
           CSV_NAME=$(ls charges_CR*.csv)
+          ZIP_NAME="${CSV_NAME%.csv}.zip"
           zip "$ZIP_NAME" "$CSV_NAME" progress.txt || true
           echo "ZIPPED_FILE=$ZIP_NAME" >> $GITHUB_ENV
 
