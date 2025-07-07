@@ -1,5 +1,3 @@
-can you update the following code with the changes and so i can paste it in its entirety? 
-
 import requests
 from bs4 import BeautifulSoup
 import csv
@@ -44,7 +42,13 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
             req = requests.get(url, timeout=15)
             print(f"{timestamp()} Request status: {req.status_code} URL: {req.url}", flush=True)
 
-            soup = BeautifulSoup(req.content, "html.parser")
+            content_raw = req.content
+            if not content_raw.strip():
+                print(f"{timestamp()} ⚠️ Empty response body for {case_number}. Status: {req.status_code}", flush=True)
+                print(f"{timestamp()} 🔎 Response headers: {req.headers}", flush=True)
+                break
+
+            soup = BeautifulSoup(content_raw, "html.parser")
             page_text = soup.get_text(strip=True)
 
             if "Server busy. Please try again later." in page_text:
