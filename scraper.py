@@ -1,3 +1,5 @@
+can you update the following code with the changes and so i can paste it in its entirety? 
+
 import requests
 from bs4 import BeautifulSoup
 import csv
