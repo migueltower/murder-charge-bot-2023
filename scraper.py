@@ -3,7 +3,6 @@ from bs4 import BeautifulSoup
 import csv
 import time
 import os
-import random
 from datetime import datetime
 
 def timestamp():
@@ -20,9 +19,11 @@ current = start
 last_successful = start
 found_relevant_charge = False
 
+# Track progress for triggering next workflow
 with open("progress.txt", "w") as prog:
     prog.write(str(current))
 
+# Temporary file to be renamed later only if relevant charges are found
 temp_csv_file = f"charges_CR{year}_{start}-placeholder.csv"
 
 with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
@@ -116,13 +117,9 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
         except Exception as e:
             print(f"{timestamp()} ⚠️ General error with {case_number}: {e}", flush=True)
 
-        # 👇 Human-like delay
-        sleep_duration = random.uniform(4, 9)
-        print(f"{timestamp()} 💤 Sleeping for {sleep_duration:.2f} seconds to simulate human-like pacing...", flush=True)
-        time.sleep(sleep_duration)
-
         current += 1
 
+# Only preserve the file if relevant charges found
 if found_relevant_charge:
     final_csv_file = f"charges_CR{year}_{start}-{last_successful}.csv"
     os.rename(temp_csv_file, final_csv_file)
