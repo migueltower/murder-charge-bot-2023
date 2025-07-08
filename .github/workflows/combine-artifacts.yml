@@ -20,38 +20,39 @@ jobs:
 
       - name: List and download all artifacts from workflows A, B, C
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKENN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           mkdir artifacts_raw
-          echo "🔍 Fetching artifact list from GitHub..."
+          > raw_artifacts.json
 
-          RESPONSE_FILE=raw_artifacts.json
+          echo "🔍 Fetching artifact list from GitHub with pagination..."
 
-          curl -s -H "Authorization: token $GITHUB_TOKEN" \
-               -H "Accept: application/vnd.github+json" \
-               https://api.github.com/repos/${{ github.repository }}/actions/artifacts \
-               -o "$RESPONSE_FILE"
+          for page in {1..20}; do
+            echo "📄 Fetching page $page..."
+            curl -s -H "Authorization: token $GITHUB_TOKEN" \
+                 -H "Accept: application/vnd.github+json" \
+                 "https://api.github.com/repos/${{ github.repository }}/actions/artifacts?per_page=100&page=$page" \
+              >> raw_artifacts.json
+          done
 
-          echo "📄 Raw API response (first 20 lines):"
-          head -n 20 "$RESPONSE_FILE"
+          echo "📄 Raw response (first 20 lines):"
+          head -n 20 raw_artifacts.json
 
-          ARTIFACT_COUNT=$(jq '.artifacts | length' "$RESPONSE_FILE" 2>/dev/null || echo 0)
+          echo "🧾 Listing artifact names:"
+          jq -r 'select(type == "object") | .artifacts[]? | select(.expired == false) | "- \(.name) (ID: \(.id))"' raw_artifacts.json || echo "⚠️ Failed to parse artifact names."
 
-          if [ "$ARTIFACT_COUNT" -eq 0 ]; then
+          jq -r 'select(type == "object") | .artifacts[]? | select(.expired == false) | "\(.id) \(.name)"' raw_artifacts.json > artifact_list.txt
+
+          if [ ! -s artifact_list.txt ]; then
             echo "⚠️ No artifacts found to download. Exiting early."
             exit 0
           fi
-
-          echo "🧾 Listing artifact names:"
-          jq -r '.artifacts[] | select(.expired == false) | "- \(.name) (ID: \(.id))"' "$RESPONSE_FILE" || echo "⚠️ Failed to parse artifact names."
-
-          jq -r '.artifacts[] | select(.expired == false) | "\(.id) \(.name)"' "$RESPONSE_FILE" > artifact_list.txt
 
           while IFS=" " read -r id name; do
             echo "⬇️ Downloading artifact: $name (ID: $id)"
             curl -L -s -H "Authorization: token $GITHUB_TOKEN" \
                  -H "Accept: application/vnd.github+json" \
-                 https://api.github.com/repos/${{ github.repository }}/actions/artifacts/$id/zip \
+                 "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/$id/zip" \
               -o "artifacts_raw/$name.zip"
           done < artifact_list.txt
 
