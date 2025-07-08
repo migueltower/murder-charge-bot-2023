@@ -25,6 +25,38 @@ with open("progress.txt", "w") as prog:
 
 temp_csv_file = f"charges_CR{year}_{start}-placeholder.csv"
 
+header_pool = [
+    {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5735.110 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.8",
+        "Referer": "https://www.google.com/",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1"
+    },
+    {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Safari/605.1.15",
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://bing.com/",
+        "Connection": "keep-alive",
+    },
+    {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.5672.92 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-GB,en;q=0.7",
+        "Referer": "https://duckduckgo.com/",
+        "Connection": "keep-alive",
+    },
+    {
+        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 15_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1",
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Referer": "https://www.superiorcourt.maricopa.gov/",
+        "Connection": "keep-alive",
+    }
+]
+
 with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
     writer = csv.DictWriter(f, fieldnames=fieldnames)
     writer.writeheader()
@@ -32,22 +64,14 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
     print(f"{timestamp()} 🔁 Running case range: {start} to {end} for year {year}", flush=True)
 
     session = requests.Session()
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://www.superiorcourt.maricopa.gov/",
-        "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1"
-    }
 
     while current <= end:
         case_number = f"{prefix}{str(current).zfill(6)}"
-
         print(f"{timestamp()} Checking case: {case_number}", flush=True)
         url = f"https://www.superiorcourt.maricopa.gov/docket/CriminalCourtCases/caseInfo.asp?caseNumber={case_number}"
 
         try:
+            headers = random.choice(header_pool)
             req = session.get(url, headers=headers, timeout=15)
             print(f"{timestamp()} Request status: {req.status_code} URL: {req.url}", flush=True)
 
@@ -116,7 +140,6 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
         except Exception as e:
             print(f"{timestamp()} ⚠️ General error with {case_number}: {e}", flush=True)
 
-        # 👇 Human-like delay
         sleep_duration = random.uniform(4, 9)
         print(f"{timestamp()} 💤 Sleeping for {sleep_duration:.2f} seconds to simulate human-like pacing...", flush=True)
         time.sleep(sleep_duration)
