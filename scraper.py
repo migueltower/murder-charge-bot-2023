@@ -20,9 +20,9 @@ current = start
 last_successful = start
 request_limit = 100
 requests_made = 0
-delay_seconds = 43200 / request_limit  # ~864 seconds = 14m24s between hits
+delay_seconds = 86400 / request_limit  # ~864 seconds = 14m24s per request
 
-# Set a deadline to stop just before GitHub's 6-hour limit
+# Set a deadline to stop just before GitHub's 6-hour job limit
 job_start_time = datetime.now()
 job_deadline = job_start_time + timedelta(hours=5, minutes=55)
 
@@ -35,7 +35,7 @@ header_pool = [
     {
         "User-Agent": "...",
         "Accept": "...",
-        # Add more if desired
+        # Add additional headers if desired
     },
 ]
 
@@ -117,6 +117,13 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
 
         current += 1
         requests_made += 1
+
+        # ✅ SAFETY CHECK before sleeping — prevent GitHub timeout
+        time_remaining = (job_deadline - datetime.now()).total_seconds()
+        if time_remaining < delay_seconds + 60:  # Leave 60s buffer
+            print(f"{timestamp()} ⏰ Time limit approaching — exiting safely after {requests_made} requests.", flush=True)
+            break
+
         print(f"{timestamp()} 💤 Sleeping for {int(delay_seconds)}s", flush=True)
         time.sleep(delay_seconds)
 
@@ -125,5 +132,4 @@ final_csv_file = f"charges_CR{year}_{start}-{last_successful}.csv"
 os.rename(temp_csv_file, final_csv_file)
 print(f"{timestamp()} ✅ CSV file saved: {final_csv_file}", flush=True)
 
-if datetime.now() >= job_deadline:
-    print(f"{timestamp()} ⏰ Time limit reached — exited early after {requests_made} requests.", flush=True)
+print(f"{timestamp()} 🕒 Job duration: {(datetime.now() - job_start_time)}", flush=True)
