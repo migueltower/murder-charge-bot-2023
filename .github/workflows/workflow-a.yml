@@ -1,46 +1,40 @@
 # 🏷️ Name of the GitHub Actions workflow shown in the GitHub UI
 name: Workflow A - Run Scraper
 
-# 🚀 This workflow can be manually triggered from the GitHub UI with custom input
 on:
   workflow_dispatch:
     inputs:
-      START:  # Beginning of the case number range (e.g., 0)
+      START:
         description: "Start number"
         required: true
         default: "0"
-      END:    # End of the case number range (e.g., 100)
+      END:
         description: "End number"
         required: true
         default: "100"
-      YEAR:   # Year prefix for case numbers (e.g., 2024)
+      YEAR:
         description: "Year"
         required: true
         default: "2024"
 
-# 📦 Define the main job to run the scraper
 jobs:
   run-scraper-a:
-    runs-on: ubuntu-latest  # Use latest Ubuntu runner
+    runs-on: ubuntu-latest
     steps:
 
-      # 📥 Step 1: Check out the code from the repository
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      # 🐍 Step 2: Set up Python 3.11
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      # 📦 Step 3: Install required Python packages (no pipenv here)
       - name: Install dependencies
         run: |
           pip install --upgrade pip
           pip install beautifulsoup4 requests
 
-      # 🧾 Step 4: Run the scraper script with inputs passed as environment variables
       - name: Run scraper
         env:
           START: ${{ inputs.START }}
@@ -48,16 +42,14 @@ jobs:
           YEAR: ${{ inputs.YEAR }}
         run: python scraper.py
 
-      # 📦 Step 5: If a CSV file was generated, zip it along with progress.txt
       - name: Create named zip if CSV exists
         if: success() && hashFiles('charges_CR*.csv') != ''
         run: |
-          CSV_NAME=$(ls charges_CR*.csv)  # Get name of generated CSV
-          ZIP_NAME="${CSV_NAME%.csv}.zip"  # Change extension to .zip
-          zip "$ZIP_NAME" "$CSV_NAME" progress.txt || true  # Zip CSV and progress log
-          echo "ZIPPED_FILE=$ZIP_NAME" >> $GITHUB_ENV  # Save ZIP name to GitHub env
+          CSV_NAME=$(ls charges_CR*.csv)
+          ZIP_NAME="${CSV_NAME%.csv}.zip"
+          zip "$ZIP_NAME" "$CSV_NAME" progress.txt || true
+          echo "ZIPPED_FILE=$ZIP_NAME" >> $GITHUB_ENV
 
-      # ☁️ Step 6: Upload the zip file as an artifact to GitHub Actions
       - name: Upload named artifact
         if: success() && env.ZIPPED_FILE != ''
         uses: actions/upload-artifact@v4
@@ -65,9 +57,9 @@ jobs:
           name: ${{ env.ZIPPED_FILE }}
           path: ${{ env.ZIPPED_FILE }}
 
-      # 🔁 Step 7: If progress.txt exists and the range isn’t finished, trigger Workflow B
       - name: Trigger Workflow B if progress exists
         if: success() && hashFiles('progress.txt') != ''
+        shell: bash
         run: |
           NEXT_START=$(cat progress.txt)
           if [ "$NEXT_START" -lt "${{ inputs.END }}" ]; then
@@ -76,6 +68,13 @@ jobs:
               -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
               -H "Accept: application/vnd.github+json" \
               https://api.github.com/repos/${{ github.repository }}/dispatches \
-              -d "{\"event_type\":\"continue-with-b\",\"client_payload\":{\"start\":\"$NEXT_START\",\"end\":\"${{ inputs.END }}\",\"year\":\"${{ inputs.YEAR }}\"}}"
+              -d '{
+                "event_type": "continue-with-b",
+                "client_payload": {
+                  "start": "'"$NEXT_START"'",
+                  "end": "'"${{ inputs.END }}"'",
+                  "year": "'"${{ inputs.YEAR }}"'"
+                }
+              }'
           else
             echo "✅ Full range completed. No need to continue."
