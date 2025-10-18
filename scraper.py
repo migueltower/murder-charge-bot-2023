@@ -20,7 +20,7 @@ current = start
 last_successful = start
 request_limit = 100
 requests_made = 0
-delay_seconds = 21600 / request_limit  # ~864 seconds = 14m24s per request
+delay_seconds = 10800 / request_limit  # ~864 seconds = 14m24s per request
 
 # Set a deadline to stop just before GitHub's 6-hour job limit
 job_start_time = datetime.now()
