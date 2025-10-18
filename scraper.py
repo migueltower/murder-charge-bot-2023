@@ -14,15 +14,21 @@ end = int(os.getenv("END", 9999))
 year = int(os.getenv("YEAR", 2023))
 prefix = f"CR{year}-"
 
-fieldnames = ["Case Number", "URL", "Charge", "Defendant", "Disposition"]
+# Expanded fields for richer data
+fieldnames = [
+    "Case Number", "URL",
+    "Case Type", "Location",
+    "Defendant", "Sex", "Attorney", "Judge",
+    "Charge", "ARS Code", "Disposition Code", "Disposition", "Crime Date", "Disposition Date",
+    "Next Hearing Date", "Next Hearing Event",
+    "Most Recent Filing", "Most Recent Filing Date"
+]
 
 current = start
 last_successful = start
 request_limit = 100
 requests_made = 0
-delay_seconds = 10800 / request_limit  # ~864 seconds = 14m24s per request
-
-# Set a deadline to stop just before GitHub's 6-hour job limit
+delay_seconds = 10800 / request_limit  # ~14m24s per request
 job_start_time = datetime.now()
 job_deadline = job_start_time + timedelta(hours=5, minutes=55)
 
@@ -33,9 +39,8 @@ temp_csv_file = f"charges_CR{year}_{start}-placeholder.csv"
 
 header_pool = [
     {
-        "User-Agent": "...",
-        "Accept": "...",
-        # Add additional headers if desired
+        "User-Agent": "Mozilla/5.0 (compatible; CourtScraper/1.0)",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     },
 ]
 
@@ -44,7 +49,6 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
     writer.writeheader()
 
     print(f"{timestamp()} 🔁 Running case range: {start} to {end} for year {year}", flush=True)
-
     session = requests.Session()
 
     while current <= end and requests_made < request_limit and datetime.now() < job_deadline:
@@ -64,51 +68,117 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
             soup = BeautifulSoup(req.content, "html.parser")
             page_text = soup.get_text(strip=True)
 
-            if "Server busy. Please try again later." in page_text:
+            if "Server busy" in page_text or "Please try again later" in page_text:
                 print(f"{timestamp()} 🔄 Server busy message detected. Ending run.", flush=True)
-                break
-            elif "Please try again later" in page_text or "temporarily unavailable" in page_text:
-                print(f"{timestamp()} ⚠️ Similar server message detected. Snippet:\n{page_text[:300]}", flush=True)
                 break
 
             last_successful = current
             with open("progress.txt", "w") as prog:
                 prog.write(str(last_successful + 1))
 
-            if soup.find("p", class_="emphasis") and "no cases found" in soup.find("p", class_="emphasis").text.lower():
-                print(f"{timestamp()} ❌ No case found for {case_number}", flush=True)
-            else:
-                charges_section = soup.find("div", id="tblDocket12")
-                if not charges_section:
-                    print(f"{timestamp()} No charges section found for {case_number}", flush=True)
-                else:
-                    rows = charges_section.find_all("div", class_="row g-0")
-                    print(f"{timestamp()} Found {len(rows)} rows", flush=True)
+            # --- Initialize defaults
+            case_type = location = ""
+            defendant_name = sex = attorney = judge = ""
+            charge = ars_code = disposition_code = disposition = crime_date = disposition_date = ""
+            next_hearing_date = next_hearing_event = ""
+            most_recent_filing = most_recent_filing_date = ""
 
-                    for row in rows:
-                        divs = row.find_all("div")
-                        fields = [div.get_text(strip=True) for div in divs]
+            # --- CASE INFO
+            case_info = soup.find("div", id="tblForms")
+            if case_info:
+                divs = case_info.find_all("div")
+                for i, div in enumerate(divs):
+                    text = div.get_text(strip=True)
+                    if "Case Type" in text and i + 1 < len(divs):
+                        case_type = divs[i + 1].get_text(strip=True)
+                    if "Location" in text and i + 1 < len(divs):
+                        location = divs[i + 1].get_text(strip=True)
 
-                        description = ""
-                        disposition = ""
-                        defendant_name = ""
+            # --- PARTY INFO
+            party_info = soup.find("div", id="tblDocket2")
+            if party_info:
+                rows = party_info.find_all("div", class_="row")
+                for row in rows:
+                    fields = [d.get_text(strip=True) for d in row.find_all("div")]
+                    if any("Defendant" in f for f in fields):
+                        for i, text in enumerate(fields):
+                            if "Party Name" in text and i + 1 < len(fields):
+                                defendant_name = fields[i + 1]
+                            if "Sex" in text and i + 1 < len(fields):
+                                sex = fields[i + 1]
+                            if "Attorney" in text and i + 1 < len(fields):
+                                attorney = fields[i + 1]
+                            if "Judge" in text and i + 1 < len(fields):
+                                judge = fields[i + 1]
 
-                        for idx, text in enumerate(fields):
-                            if "Party Name" in text and idx + 1 < len(fields):
-                                defendant_name = fields[idx + 1]
-                            if "Description" in text and idx + 1 < len(fields):
-                                description = fields[idx + 1]
-                            if "Disposition" in text and idx + 1 < len(fields):
-                                disposition = fields[idx + 1]
+            # --- DISPOSITION INFO
+            disp_section = soup.find("div", id="tblDocket12")
+            if disp_section:
+                rows = disp_section.find_all("div", class_="row g-0")
+                for row in rows:
+                    divs = row.find_all("div")
+                    fields = [div.get_text(strip=True) for div in divs]
+                    if any("Description" in f for f in fields):
+                        for i, text in enumerate(fields):
+                            if "Description" in text and i + 1 < len(fields):
+                                charge = fields[i + 1]
+                            if "ARSCode" in text and i + 1 < len(fields):
+                                ars_code = fields[i + 1]
+                            if "Disposition Code" in text and i + 1 < len(fields):
+                                disposition_code = fields[i + 1]
+                            if "Disposition" in text and i + 1 < len(fields):
+                                disposition = fields[i + 1]
+                            if "Crime Date" in text and i + 1 < len(fields):
+                                crime_date = fields[i + 1]
+                            if "Date" in text and i + 1 < len(fields):
+                                disposition_date = fields[i + 1]
+                        break  # just first charge row
 
-                        if description:
-                            writer.writerow({
-                                "Case Number": case_number,
-                                "URL": url,
-                                "Charge": description,
-                                "Defendant": defendant_name,
-                                "Disposition": disposition
-                            })
+            # --- CALENDAR INFO (next upcoming hearing)
+            cal_section = soup.find("div", id="tblForms4")
+            if cal_section:
+                rows = cal_section.find_all("div", class_="row g-0")
+                for row in rows:
+                    cols = [d.get_text(strip=True) for d in row.find_all("div")]
+                    if len(cols) >= 3 and "Date" not in cols[0]:
+                        next_hearing_date = cols[1]
+                        next_hearing_event = cols[-1]
+                        break
+
+            # --- CASE DOCUMENTS (most recent)
+            doc_section = soup.find("div", id="tblForms3")
+            if doc_section:
+                rows = doc_section.find_all("div", class_="row g-0")
+                for row in reversed(rows):  # last chronological
+                    cols = [d.get_text(strip=True) for d in row.find_all("div")]
+                    if any("Description" in c for c in cols):
+                        continue
+                    if len(cols) >= 4:
+                        most_recent_filing_date = cols[1]
+                        most_recent_filing = cols[3]
+                        break
+
+            # --- WRITE TO CSV
+            writer.writerow({
+                "Case Number": case_number,
+                "URL": url,
+                "Case Type": case_type,
+                "Location": location,
+                "Defendant": defendant_name,
+                "Sex": sex,
+                "Attorney": attorney,
+                "Judge": judge,
+                "Charge": charge,
+                "ARS Code": ars_code,
+                "Disposition Code": disposition_code,
+                "Disposition": disposition,
+                "Crime Date": crime_date,
+                "Disposition Date": disposition_date,
+                "Next Hearing Date": next_hearing_date,
+                "Next Hearing Event": next_hearing_event,
+                "Most Recent Filing": most_recent_filing,
+                "Most Recent Filing Date": most_recent_filing_date
+            })
 
         except requests.exceptions.RequestException as e:
             print(f"{timestamp()} ⚠️ Request error with {case_number}: {e}", flush=True)
@@ -117,19 +187,15 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
 
         current += 1
         requests_made += 1
-
-        # ✅ SAFETY CHECK before sleeping — prevent GitHub timeout
         time_remaining = (job_deadline - datetime.now()).total_seconds()
-        if time_remaining < delay_seconds + 60:  # Leave 60s buffer
+        if time_remaining < delay_seconds + 60:
             print(f"{timestamp()} ⏰ Time limit approaching — exiting safely after {requests_made} requests.", flush=True)
             break
 
         print(f"{timestamp()} 💤 Sleeping for {int(delay_seconds)}s", flush=True)
         time.sleep(delay_seconds)
 
-# Finalize file
 final_csv_file = f"charges_CR{year}_{start}-{last_successful}.csv"
 os.rename(temp_csv_file, final_csv_file)
 print(f"{timestamp()} ✅ CSV file saved: {final_csv_file}", flush=True)
-
 print(f"{timestamp()} 🕒 Job duration: {(datetime.now() - job_start_time)}", flush=True)
