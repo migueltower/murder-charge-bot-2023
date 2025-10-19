@@ -28,7 +28,7 @@ current = start
 last_successful = start
 request_limit = 100
 requests_made = 0
-delay_seconds = 10800 / request_limit  # ~14m24s per request
+delay_seconds = 6900 / request_limit  # ~14m24s per request
 job_start_time = datetime.now()
 job_deadline = job_start_time + timedelta(hours=5, minutes=55)
 
