@@ -9,6 +9,11 @@ from datetime import datetime, timedelta
 def timestamp():
     return datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
 
+# 🔹 New helper function: prints short snippet of page content
+def print_snippet(page_text, case_number):
+    snippet = page_text[:300].replace("\n", " ").replace("\r", " ")
+    print(f"{timestamp()} 🌐 Page snippet for {case_number}: {snippet}...", flush=True)
+
 start = int(os.getenv("START", 0))
 end = int(os.getenv("END", 9999))
 year = int(os.getenv("YEAR", 2023))
@@ -67,6 +72,9 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
 
             soup = BeautifulSoup(req.content, "html.parser")
             page_text = soup.get_text(strip=True)
+
+            # 🔹 Print snippet of page so you can confirm it hit correctly
+            print_snippet(page_text, case_number)
 
             if "Server busy" in page_text or "Please try again later" in page_text:
                 print(f"{timestamp()} 🔄 Server busy message detected. Ending run.", flush=True)
