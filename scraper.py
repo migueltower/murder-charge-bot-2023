@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 def timestamp():
     return datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
 
-# 🔹 New helper function: prints short snippet of page content
+# 🔹 Helper: print snippet of fetched page for diagnostics
 def print_snippet(page_text, case_number):
     snippet = page_text[:300].replace("\n", " ").replace("\r", " ")
     print(f"{timestamp()} 🌐 Page snippet for {case_number}: {snippet}...", flush=True)
@@ -73,11 +73,12 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
             soup = BeautifulSoup(req.content, "html.parser")
             page_text = soup.get_text(strip=True)
 
-            # 🔹 Print snippet of page so you can confirm it hit correctly
+            # 🔹 Diagnostic: print a short snippet from the page
             print_snippet(page_text, case_number)
 
-            if "Server busy" in page_text or "Please try again later" in page_text:
-                print(f"{timestamp()} 🔄 Server busy message detected. Ending run.", flush=True)
+            # 🔹 Handle server-busy or unavailable messages clearly
+            if any(msg in page_text for msg in ["Server busy", "Please try again later", "temporarily unavailable"]):
+                print(f"{timestamp()} 🚫 Server busy or unavailable message detected for {case_number}. Ending run safely.", flush=True)
                 break
 
             last_successful = current
@@ -95,6 +96,7 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
             case_info = soup.find("div", id="tblForms")
             if case_info:
                 divs = case_info.find_all("div")
+                print(f"{timestamp()} 🧾 Case Info rows found: {len(divs)}", flush=True)
                 for i, div in enumerate(divs):
                     text = div.get_text(strip=True)
                     if "Case Type" in text and i + 1 < len(divs):
@@ -106,6 +108,7 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
             party_info = soup.find("div", id="tblDocket2")
             if party_info:
                 rows = party_info.find_all("div", class_="row")
+                print(f"{timestamp()} 👤 Party Info rows found: {len(rows)}", flush=True)
                 for row in rows:
                     fields = [d.get_text(strip=True) for d in row.find_all("div")]
                     if any("Defendant" in f for f in fields):
@@ -123,6 +126,7 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
             disp_section = soup.find("div", id="tblDocket12")
             if disp_section:
                 rows = disp_section.find_all("div", class_="row g-0")
+                print(f"{timestamp()} ⚖️ Disposition rows found: {len(rows)}", flush=True)
                 for row in rows:
                     divs = row.find_all("div")
                     fields = [div.get_text(strip=True) for div in divs]
@@ -146,6 +150,7 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
             cal_section = soup.find("div", id="tblForms4")
             if cal_section:
                 rows = cal_section.find_all("div", class_="row g-0")
+                print(f"{timestamp()} 📅 Calendar rows found: {len(rows)}", flush=True)
                 for row in rows:
                     cols = [d.get_text(strip=True) for d in row.find_all("div")]
                     if len(cols) >= 3 and "Date" not in cols[0]:
@@ -157,6 +162,7 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
             doc_section = soup.find("div", id="tblForms3")
             if doc_section:
                 rows = doc_section.find_all("div", class_="row g-0")
+                print(f"{timestamp()} 📄 Document rows found: {len(rows)}", flush=True)
                 for row in reversed(rows):  # last chronological
                     cols = [d.get_text(strip=True) for d in row.find_all("div")]
                     if any("Description" in c for c in cols):
