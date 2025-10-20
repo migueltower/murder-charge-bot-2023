@@ -31,7 +31,7 @@ fieldnames = [
 
 current = start
 last_successful = start
-request_limit = 100
+request_limit = 1000
 requests_made = 0
 delay_seconds = 6900 / request_limit  # ~14m24s per request
 job_start_time = datetime.now()
