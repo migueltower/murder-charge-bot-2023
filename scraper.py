@@ -14,6 +14,17 @@ def print_snippet(page_text, case_number):
     snippet = page_text[:300].replace("\n", " ").replace("\r", " ")
     print(f"{timestamp()} 🌐 Page snippet for {case_number}: {snippet}...", flush=True)
 
+# 🔹 NEW: SSL-tolerant request wrapper (added without modifying any other function)
+def safe_session_get(session, url, headers, timeout=15):
+    """Try normal SSL request; on SSL certificate failure, retry with verify=False.
+    This handles the court's intermittent broken certificate chain."""
+    try:
+        return session.get(url, headers=headers, timeout=timeout)
+    except requests.exceptions.SSLError as e:
+        print(f"{timestamp()} 🔐 SSL error on first attempt for {url}: {e}", flush=True)
+        print(f"{timestamp()} 🔄 Retrying without certificate verification (court SSL issue).", flush=True)
+        return session.get(url, headers=headers, timeout=timeout, verify=False)
+
 start = int(os.getenv("START", 0))
 end = int(os.getenv("END", 9999))
 year = int(os.getenv("YEAR", 2023))
@@ -63,7 +74,10 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
 
         try:
             headers = random.choice(header_pool)
-            req = session.get(url, headers=headers, timeout=15)
+
+            # 🔹 PATCHED REQUEST (replaces session.get)
+            req = safe_session_get(session, url, headers=headers, timeout=15)
+
             print(f"{timestamp()} Request status: {req.status_code} URL: {req.url}", flush=True)
 
             if not req.content.strip():
@@ -163,7 +177,7 @@ with open(temp_csv_file, mode="w", newline="", encoding="utf-8") as f:
             if doc_section:
                 rows = doc_section.find_all("div", class_="row g-0")
                 print(f"{timestamp()} 📄 Document rows found: {len(rows)}", flush=True)
-                for row in reversed(rows):  # last chronological
+                for row in reversed(rows):
                     cols = [d.get_text(strip=True) for d in row.find_all("div")]
                     if any("Description" in c for c in cols):
                         continue
