@@ -44,7 +44,7 @@ current = start
 last_successful = start
 request_limit = 1000
 requests_made = 0
-delay_seconds = 69  # always sleep 69 seconds between requests
+delay_seconds = 31  # always sleep 69 seconds between requests
 job_start_time = datetime.now()
 job_deadline = job_start_time + timedelta(hours=5, minutes=55)
 
